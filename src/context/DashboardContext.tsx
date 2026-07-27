@@ -6,6 +6,7 @@ import {
   fetchSupabaseInventory,
   fetchSupabaseOrders,
   fetchSupabaseRetailers,
+  fetchSupabaseClients,
   insertSupabaseInventoryItem,
   updateSupabaseInventoryQty,
   deleteSupabaseInventoryItem,
@@ -15,6 +16,9 @@ import {
   insertSupabaseRetailer,
   updateSupabaseRetailer,
   deleteSupabaseRetailer,
+  insertSupabaseClient,
+  updateSupabaseClientStatus,
+  deleteSupabaseClient,
   seedSupabaseData,
   isSupabaseConfigured,
 } from "@/lib/supabaseService";
@@ -116,6 +120,12 @@ interface DashboardContextType {
   setIsModalOpen: (open: boolean) => void;
   isOrderModalOpen: boolean;
   setIsOrderModalOpen: (open: boolean) => void;
+  isUpgradeModalOpen: boolean;
+  setIsUpgradeModalOpen: (open: boolean) => void;
+  upgradeReason: string;
+  triggerUpgradeModal: (reason: string) => void;
+  unreadNotificationsCount: number;
+  markNotificationsAsRead: () => void;
   isLoading: boolean;
   isSupabaseLive: boolean;
   isSeeding: boolean;
@@ -264,6 +274,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState("");
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(3);
   const [isLoading, setIsLoading] = useState(true);
   const [isSupabaseLive, setIsSupabaseLive] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -274,6 +287,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
   const [clients, setClients] = useState<ClientBusiness[]>(initialMockClients);
 
+  const triggerUpgradeModal = (reason: string) => {
+    setUpgradeReason(reason);
+    setIsUpgradeModalOpen(true);
+  };
+
+  const markNotificationsAsRead = () => {
+    setUnreadNotificationsCount(0);
+  };
+
   const addLog = (title: string, description: string, type: ActivityLog["type"]) => {
     const newLog: ActivityLog = {
       id: `log-${Date.now()}`,
@@ -283,6 +305,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       type,
     };
     setActivityLogs(prev => [newLog, ...prev.slice(0, 15)]);
+    setUnreadNotificationsCount(prev => prev + 1);
   };
 
   const addClientBusiness = (clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
@@ -302,6 +325,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     setClients(prev => [newClient, ...prev]);
     addLog(`Client Onboarded: ${newClient.name}`, `Provisioned ${newClient.plan} account for ${newClient.ownerEmail}`, "retailer");
+    insertSupabaseClient(newClient);
   };
 
   const toggleClientStatus = (id: string) => {
@@ -310,6 +334,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (client.id === id) {
           const nextStatus: ClientBusiness["status"] = client.status === "Active" ? "Suspended" : "Active";
           addLog(`Client Access ${nextStatus}`, `${client.name} status updated to ${nextStatus}`, "retailer");
+          updateSupabaseClientStatus(id, nextStatus);
           return { ...client, status: nextStatus };
         }
         return client;
@@ -322,6 +347,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     if (target) {
       setClients(prev => prev.filter(c => c.id !== id));
       addLog(`Client Account Deleted`, `Removed ${target.name} from SaaS platform`, "retailer");
+      deleteSupabaseClient(id);
     }
   };
 
@@ -342,10 +368,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       // Small minimum delay (600ms) for smooth preloader transition without jarring flashes
       const minDelayPromise = new Promise(resolve => setTimeout(resolve, 600));
 
-      const [remoteInv, remoteOrd, remoteRet] = await Promise.all([
+      const [remoteInv, remoteOrd, remoteRet, remoteCli] = await Promise.all([
         fetchSupabaseInventory(),
         fetchSupabaseOrders(),
         fetchSupabaseRetailers(),
+        fetchSupabaseClients(),
         minDelayPromise,
       ]);
 
@@ -359,6 +386,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
       if (remoteRet && remoteRet.length > 0) {
         setRetailers(remoteRet);
+        setIsSupabaseLive(true);
+      }
+      if (remoteCli && remoteCli.length > 0) {
+        setClients(remoteCli);
         setIsSupabaseLive(true);
       }
     } catch (error) {
@@ -573,6 +604,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setIsModalOpen,
         isOrderModalOpen,
         setIsOrderModalOpen,
+        isUpgradeModalOpen,
+        setIsUpgradeModalOpen,
+        upgradeReason,
+        triggerUpgradeModal,
+        unreadNotificationsCount,
+        markNotificationsAsRead,
         isLoading,
         isSupabaseLive,
         isSeeding,

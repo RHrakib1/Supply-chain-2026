@@ -7,8 +7,7 @@ import {
   Menu, 
   Clock,
   Package,
-  AlertTriangle,
-  CheckCircle,
+  ShoppingCart,
   Database,
   Shield,
   User,
@@ -25,9 +24,29 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }: NavbarProps) {
-  const { isSupabaseLive, isSeeding, seedDatabase, userRole, isAdmin, isSuperAdmin, setUserRole } = useDashboard();
+  const { 
+    isSupabaseLive, 
+    isSeeding, 
+    seedDatabase, 
+    userRole, 
+    isAdmin, 
+    isSuperAdmin, 
+    setUserRole,
+    activityLogs,
+    unreadNotificationsCount,
+    markNotificationsAsRead
+  } = useDashboard();
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+
+  const handleToggleNotifications = () => {
+    const nextState = !showNotifications;
+    setShowNotifications(nextState);
+    if (nextState && unreadNotificationsCount > 0) {
+      markNotificationsAsRead();
+    }
+  };
   const notifRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
 
@@ -52,35 +71,7 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
     setShowRoleDropdown(false);
   };
 
-  const notifications = [
-    {
-      id: 1,
-      title: "Delayed Shipment Alert",
-      desc: "Route #4 (Truck TX-89) delayed by 45 mins due to construction.",
-      time: "10 mins ago",
-      type: "delay",
-      icon: AlertTriangle,
-      color: "text-amber-400 bg-amber-500/10 border-amber-500/20"
-    },
-    {
-      id: 2,
-      title: "Critical Stock Warning",
-      desc: "Industrial Couplers (SKU-892) reached reorder threshold (12 units remaining).",
-      time: "1 hour ago",
-      type: "stock",
-      icon: Package,
-      color: "text-rose-400 bg-rose-500/10 border-rose-500/20"
-    },
-    {
-      id: 3,
-      title: "Fulfillment Goal Reached",
-      desc: "Daily fulfillment rate achieved 99.4% across all retailers.",
-      time: "3 hours ago",
-      type: "success",
-      icon: CheckCircle,
-      color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-    },
-  ];
+
 
   return (
     <header className="sticky top-0 z-30 h-16 w-full glass-panel border-b border-white/10 flex items-center justify-between px-4 sm:px-6 bg-slate-950/40">
@@ -194,48 +185,85 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
         {/* Notifications Dropdown */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={handleToggleNotifications}
             className={`p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/5 transition-all duration-300 relative ${
               showNotifications ? "bg-white/5 border-white/5 text-white" : ""
             }`}
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-            </span>
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-md shadow-rose-500/30">
+                {unreadNotificationsCount}
+              </span>
+            )}
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-3 w-80 sm:w-96 glass-panel rounded-2xl shadow-2xl shadow-black/80 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-top-3 duration-250">
+            <div className="absolute right-0 mt-3 w-80 sm:w-96 glass-panel rounded-2xl shadow-2xl shadow-black/80 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-top-3 duration-250 z-50">
               <div className="px-5 py-4 border-b border-white/10 bg-slate-950/40 flex justify-between items-center">
-                <span className="font-semibold text-white">Notifications</span>
-                <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-medium">3 New</span>
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-indigo-400" />
+                  <span className="font-semibold text-white text-sm">Notifications & Audit Feed</span>
+                </div>
+                {unreadNotificationsCount > 0 ? (
+                  <span className="text-[10px] bg-rose-500/20 text-rose-350 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold">
+                    {unreadNotificationsCount} New
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-medium">
+                    All Read
+                  </span>
+                )}
               </div>
+
               <div className="divide-y divide-white/5 max-h-96 overflow-y-auto">
-                {notifications.map((n) => {
-                  const NotifIcon = n.icon;
-                  return (
-                    <div key={n.id} className="p-4 hover:bg-white/5 transition-colors cursor-pointer flex gap-3">
-                      <div className={`p-2 rounded-xl border flex-shrink-0 h-10 w-10 flex items-center justify-center ${n.color}`}>
-                        <NotifIcon className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white leading-tight">{n.title}</p>
-                        <p className="text-xs text-slate-400 mt-1 leading-normal">{n.desc}</p>
-                        <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-500 font-medium">
-                          <Clock className="h-3 w-3" />
-                          <span>{n.time}</span>
+                {activityLogs.length > 0 ? (
+                  activityLogs.map((log) => {
+                    const getIconConfig = (type: string) => {
+                      switch (type) {
+                        case "inventory":
+                          return { icon: Package, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
+                        case "order":
+                          return { icon: ShoppingCart, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" };
+                        case "retailer":
+                          return { icon: Database, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
+                        default:
+                          return { icon: Bell, color: "text-slate-400 bg-slate-500/10 border-slate-500/20" };
+                      }
+                    };
+
+                    const config = getIconConfig(log.type);
+                    const IconComp = config.icon;
+
+                    return (
+                      <div key={log.id} className="p-4 hover:bg-white/5 transition-colors cursor-pointer flex gap-3">
+                        <div className={`p-2.5 rounded-xl border flex-shrink-0 h-9 w-9 flex items-center justify-center ${config.color}`}>
+                          <IconComp className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-white leading-tight truncate">{log.title}</p>
+                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{log.description}</p>
+                          <div className="flex items-center gap-1 mt-1.5 text-[10px] text-slate-500 font-medium">
+                            <Clock className="h-3 w-3" />
+                            <span>{log.timestamp}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-slate-500 text-center py-8">No notifications recorded.</p>
+                )}
               </div>
-              <div className="px-5 py-3 border-t border-white/10 bg-slate-950/40 text-center">
-                <button className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
-                  View all alerts & reports
+
+              <div className="px-5 py-3 border-t border-white/10 bg-slate-950/40 flex justify-between items-center text-xs">
+                <button 
+                  onClick={markNotificationsAsRead}
+                  className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors text-[11px]"
+                >
+                  Mark all as read
                 </button>
+                <span className="text-[10px] text-slate-500 font-medium">Supabase Telemetry</span>
               </div>
             </div>
           )}

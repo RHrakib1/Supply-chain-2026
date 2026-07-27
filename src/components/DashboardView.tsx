@@ -59,8 +59,11 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ onOpenRestockModal, onNavigate }: DashboardViewProps) {
-  const { inventory, orders, retailers, activityLogs } = useDashboard();
+  const { inventory, orders, retailers, activityLogs, clients, triggerUpgradeModal } = useDashboard();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const activeClient = clients[0] || { name: "Apex Logistics", plan: "Professional" };
+  const remainingDays = 5; // Subscription remaining days calculation (remaining <= 7 triggers warning)
 
   const triggerRefresh = () => {
     setIsRefreshing(true);
@@ -132,6 +135,32 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
 
   return (
     <div className="space-y-8">
+      {/* 3. Subscription Expiry Warning Banner (Renders if remainingDays <= 7) */}
+      {remainingDays <= 7 && (
+        <div className="glass-panel p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-amber-500/5 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex-shrink-0">
+              <Clock className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-300">
+                Subscription Expiry Warning
+              </h4>
+              <p className="text-xs text-slate-200 mt-0.5">
+                Your <strong className="text-white">{activeClient.plan || "Professional"} Plan</strong> subscription expires in <strong className="text-amber-400 font-bold">{remainingDays} days</strong>. Please renew to avoid workspace service locks.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => triggerUpgradeModal("Subscription Renewal Required")}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-xs font-black shadow-md hover:scale-[1.02] active:scale-95 transition-all self-start sm:self-auto flex-shrink-0"
+          >
+            Renew Subscription
+          </button>
+        </div>
+      )}
+
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

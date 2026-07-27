@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { InventoryItem, Order, Retailer } from "@/context/DashboardContext";
+import { InventoryItem, Order, Retailer, ClientBusiness } from "@/context/DashboardContext";
 
 export const isSupabaseConfigured = (): boolean => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -261,6 +261,89 @@ export async function deleteSupabaseRetailer(id: string) {
   if (!isSupabaseConfigured()) return;
   const { error } = await supabase.from("retailers").delete().eq("id", id);
   if (error) console.error("Error deleting retailer:", error.message);
+}
+
+// --- TENANT / CLIENT BUSINESSES ---
+interface SupabaseClientRow {
+  id?: string;
+  name: string;
+  owner_name?: string;
+  ownerName?: string;
+  owner_email?: string;
+  ownerEmail?: string;
+  plan?: "Starter" | "Professional" | "Enterprise";
+  max_users?: number;
+  maxUsers?: number;
+  active_users?: number;
+  activeUsers?: number;
+  status?: "Active" | "Pending" | "Suspended";
+  mrr?: number;
+  created_at?: string;
+  createdAt?: string;
+}
+
+export async function fetchSupabaseClients(): Promise<ClientBusiness[] | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      if (error) console.warn("Supabase fetch clients notice:", error.message);
+      return null;
+    }
+
+    return (data as SupabaseClientRow[]).map(c => ({
+      id: c.id || `CLI-${Math.floor(Math.random() * 900 + 100)}`,
+      name: c.name,
+      ownerName: c.owner_name || c.ownerName || "Client Owner",
+      ownerEmail: c.owner_email || c.ownerEmail || "owner@client.com",
+      plan: c.plan || "Professional",
+      maxUsers: c.max_users ?? c.maxUsers ?? 20,
+      activeUsers: c.active_users ?? c.activeUsers ?? 1,
+      status: (c.status || "Active") as ClientBusiness["status"],
+      mrr: c.mrr ?? (c.plan === "Enterprise" ? 1999 : c.plan === "Starter" ? 299 : 799),
+      createdAt: c.created_at?.split("T")[0] || c.createdAt || new Date().toISOString().split("T")[0],
+    }));
+  } catch (err) {
+    console.error("Failed to fetch clients from Supabase:", err);
+    return null;
+  }
+}
+
+export async function insertSupabaseClient(client: ClientBusiness) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from("clients").insert([
+    {
+      id: client.id,
+      name: client.name,
+      owner_name: client.ownerName,
+      owner_email: client.ownerEmail,
+      plan: client.plan,
+      max_users: client.maxUsers,
+      active_users: client.activeUsers,
+      status: client.status,
+      mrr: client.mrr,
+    },
+  ]);
+  if (error) console.error("Error inserting client:", error.message);
+}
+
+export async function updateSupabaseClientStatus(id: string, status: ClientBusiness["status"]) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase
+    .from("clients")
+    .update({ status })
+    .eq("id", id);
+  if (error) console.error("Error updating client status:", error.message);
+}
+
+export async function deleteSupabaseClient(id: string) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from("clients").delete().eq("id", id);
+  if (error) console.error("Error deleting client:", error.message);
 }
 
 // --- SEED DUMMY DATA ---

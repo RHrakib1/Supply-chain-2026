@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import Modal from "./Modal";
 import OrderModal from "./OrderModal";
+import UpgradeModal from "./UpgradeModal";
 import Preloader from "./Preloader";
 import { useDashboard } from "@/context/DashboardContext";
 
@@ -21,6 +22,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setIsModalOpen, 
     isOrderModalOpen, 
     setIsOrderModalOpen, 
+    isUpgradeModalOpen,
+    setIsUpgradeModalOpen,
+    upgradeReason,
     isLoading,
     addSku, 
     createOrder,
@@ -67,6 +71,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         retailers={retailers}
         inventory={inventory}
         onCreateOrder={createOrder}
+      />
+
+      {/* Global Upgrade Plan Required Modal */}
+      <UpgradeModal 
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        reason={upgradeReason}
       />
     </div>
   );
