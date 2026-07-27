@@ -12,6 +12,7 @@ import {
   Database,
   Shield,
   User,
+  Crown,
   ChevronDown
 } from "lucide-react";
 import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
@@ -24,7 +25,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }: NavbarProps) {
-  const { isSupabaseLive, isSeeding, seedDatabase, userRole, isAdmin, setUserRole } = useDashboard();
+  const { isSupabaseLive, isSeeding, seedDatabase, userRole, isAdmin, isSuperAdmin, setUserRole } = useDashboard();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -46,8 +47,8 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
     };
   }, []);
 
-  const handleRoleSelect = (role: UserRole) => {
-    setUserRole(role);
+  const handleRoleSelect = async (role: UserRole) => {
+    await setUserRole(role);
     setShowRoleDropdown(false);
   };
 
@@ -113,21 +114,37 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
           <button
             onClick={() => setShowRoleDropdown(!showRoleDropdown)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${
-              isAdmin 
+              isSuperAdmin
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                : isAdmin 
                 ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20" 
                 : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
             }`}
           >
-            {isAdmin ? <Shield className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
-            <span>Role: <strong className="uppercase">{userRole}</strong></span>
+            {isSuperAdmin ? <Crown className="h-3.5 w-3.5" /> : isAdmin ? <Shield className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
+            <span>Role: <strong className="uppercase">{userRole === "super_admin" ? "Super Admin" : userRole}</strong></span>
             <ChevronDown className="h-3 w-3 opacity-70" />
           </button>
 
           {showRoleDropdown && (
-            <div className="absolute right-0 mt-2 w-48 glass-panel rounded-xl shadow-xl border border-white/15 overflow-hidden bg-slate-950/95 z-50 animate-in fade-in duration-150">
+            <div className="absolute right-0 mt-2 w-52 glass-panel rounded-xl shadow-xl border border-white/15 overflow-hidden bg-slate-950/95 z-50 animate-in fade-in duration-150">
               <div className="px-3 py-2 border-b border-white/10 text-[10px] font-bold text-slate-400 uppercase">
                 Select Active User Role
               </div>
+
+              <button
+                onClick={() => handleRoleSelect("super_admin")}
+                className={`w-full px-3.5 py-2.5 text-xs text-left flex items-center justify-between transition-colors ${
+                  userRole === "super_admin" ? "bg-amber-600/20 text-amber-200 font-bold" : "text-slate-300 hover:bg-white/5"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Crown className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Super Admin (Owner)</span>
+                </div>
+                {userRole === "super_admin" && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+              </button>
+
               <button
                 onClick={() => handleRoleSelect("admin")}
                 className={`w-full px-3.5 py-2.5 text-xs text-left flex items-center justify-between transition-colors ${
@@ -136,7 +153,7 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
               >
                 <div className="flex items-center gap-2">
                   <Shield className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Admin</span>
+                  <span>Client Admin</span>
                 </div>
                 {userRole === "admin" && <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />}
               </button>

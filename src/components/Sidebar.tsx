@@ -13,7 +13,8 @@ import {
   Truck,
   Settings,
   Shield,
-  User
+  User,
+  Crown
 } from "lucide-react";
 import { useDashboard } from "@/context/DashboardContext";
 
@@ -24,7 +25,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { userRole, isAdmin } = useDashboard();
+  const { userRole, isAdmin, isSuperAdmin } = useDashboard();
 
   const allMenuItems = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard, adminOnly: true },
@@ -78,12 +79,39 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Sidebar Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {/* Super Admin Reserved Navigation */}
+          {isSuperAdmin && (
+            <div className="mb-6">
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-3 mb-2 flex items-center gap-1.5">
+                <Crown className="h-3 w-3" />
+                <span>Super Admin Hub</span>
+              </div>
+              <LinkComponent
+                href="/super-admin"
+                onClick={() => {
+                  if (isOpen) onClose();
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group relative text-left ${
+                  pathname === "/super-admin"
+                    ? "bg-amber-500/20 text-amber-200 border-l-4 border-amber-400 font-bold shadow-lg shadow-amber-500/10"
+                    : "text-amber-300/80 hover:text-amber-200 hover:bg-amber-500/10 border-l-4 border-transparent"
+                }`}
+              >
+                <Crown className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span>Super Admin Portal</span>
+                {pathname === "/super-admin" && (
+                  <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-lg shadow-amber-400/50" />
+                )}
+              </LinkComponent>
+            </div>
+          )}
+
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mb-3 flex items-center justify-between">
             <span>Core Operations</span>
             <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
-              isAdmin ? "bg-indigo-500/20 text-indigo-400" : "bg-emerald-500/20 text-emerald-400"
+              isSuperAdmin ? "bg-amber-500/20 text-amber-400" : isAdmin ? "bg-indigo-500/20 text-indigo-400" : "bg-emerald-500/20 text-emerald-400"
             }`}>
-              {userRole}
+              {userRole === "super_admin" ? "SUPER ADMIN" : userRole}
             </span>
           </div>
           {visibleMenuItems.map((item) => {
@@ -128,16 +156,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           )}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
             <div className={`h-8 w-8 rounded-full flex items-center justify-center font-semibold text-sm border ${
-              isAdmin ? "bg-indigo-500/25 text-indigo-400 border-indigo-500/20" : "bg-emerald-500/25 text-emerald-400 border-emerald-500/20"
+              isSuperAdmin ? "bg-amber-500/25 text-amber-400 border-amber-500/20" : isAdmin ? "bg-indigo-500/25 text-indigo-400 border-indigo-500/20" : "bg-emerald-500/25 text-emerald-400 border-emerald-500/20"
             }`}>
-              {isAdmin ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />}
+              {isSuperAdmin ? <Crown className="h-4 w-4" /> : isAdmin ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">
-                {isAdmin ? "Central Hub" : "Field Operations"}
+                {isSuperAdmin ? "Rakib (SaaS Owner)" : isAdmin ? "Central Hub" : "Field Operations"}
               </p>
               <p className="text-[10px] text-slate-400 truncate uppercase font-bold">
-                {isAdmin ? "Admin Terminal" : "Driver/Retailer Portal"}
+                {isSuperAdmin ? "Master Super Admin" : isAdmin ? "Admin Terminal" : "Driver/Retailer Portal"}
               </p>
             </div>
             <span className="flex h-2 w-2 relative">

@@ -13,6 +13,11 @@ const isRestrictedAdminRoute = createRouteMatcher([
   '/settings/(.*)',
 ]);
 
+const isSuperAdminRoute = createRouteMatcher([
+  '/super-admin',
+  '/super-admin/(.*)',
+]);
+
 export default clerkMiddleware(async (auth, req) => {
   const { sessionClaims } = await auth();
 
@@ -22,7 +27,12 @@ export default clerkMiddleware(async (auth, req) => {
     (sessionClaims?.publicMetadata as Record<string, unknown>)?.role ||
     (sessionClaims?.unsafeMetadata as Record<string, unknown>)?.role;
 
-  // Redirect non-admin users attempting to open restricted pages to /route-tracking
+  // Protect Super Admin Portal (/super-admin) exclusively for super_admin role
+  if (isSuperAdminRoute(req) && role !== "super_admin") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // Redirect normal 'user' role attempting to open restricted admin pages to /route-tracking
   if (role === "user" && isRestrictedAdminRoute(req)) {
     return NextResponse.redirect(new URL("/route-tracking", req.url));
   }

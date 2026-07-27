@@ -20,7 +20,7 @@ import {
 } from "@/lib/supabaseService";
 import { supabase } from "@/lib/supabase";
 
-export type UserRole = "admin" | "user";
+export type UserRole = "admin" | "user" | "super_admin";
 
 // Types
 export interface InventoryItem {
@@ -86,15 +86,30 @@ export interface ActivityLog {
   type: "inventory" | "order" | "retailer";
 }
 
+export interface ClientBusiness {
+  id: string;
+  name: string;
+  ownerName: string;
+  ownerEmail: string;
+  plan: "Starter" | "Professional" | "Enterprise";
+  maxUsers: number;
+  activeUsers: number;
+  status: "Active" | "Pending" | "Suspended";
+  mrr: number;
+  createdAt: string;
+}
+
 interface DashboardContextType {
   userRole: UserRole;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   setUserRole: (role: UserRole) => Promise<void>;
   inventory: InventoryItem[];
   orders: Order[];
   retailers: Retailer[];
   fleet: FleetVehicle[];
   activityLogs: ActivityLog[];
+  clients: ClientBusiness[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   isModalOpen: boolean;
@@ -114,6 +129,9 @@ interface DashboardContextType {
   addRetailer: (retailer: Partial<Retailer>) => void;
   updateRetailer: (id: string, updates: Partial<Retailer>) => void;
   deleteRetailer: (id: string) => void;
+  addClientBusiness: (client: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => void;
+  toggleClientStatus: (id: string) => void;
+  deleteClientBusiness: (id: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -153,6 +171,57 @@ const initialActivityLogs: ActivityLog[] = [
   { id: "log-4", title: "Retailer Agreement Created", description: "Walmart East Hub added to active partner network", timestamp: "3 hours ago", type: "retailer" },
 ];
 
+const initialMockClients: ClientBusiness[] = [
+  {
+    id: "CLI-101",
+    name: "Apex Global Logistics",
+    ownerName: "Sarah Jenkins",
+    ownerEmail: "sarah@apexlogistics.com",
+    plan: "Enterprise",
+    maxUsers: 50,
+    activeUsers: 28,
+    status: "Active",
+    mrr: 1999,
+    createdAt: "2026-01-15",
+  },
+  {
+    id: "CLI-102",
+    name: "Titan Supply Chain Solutions",
+    ownerName: "Marcus Aurelius",
+    ownerEmail: "marcus@titansupply.io",
+    plan: "Professional",
+    maxUsers: 20,
+    activeUsers: 14,
+    status: "Active",
+    mrr: 799,
+    createdAt: "2026-03-02",
+  },
+  {
+    id: "CLI-103",
+    name: "Horizon Express Hubs",
+    ownerName: "Jessica Alba",
+    ownerEmail: "horizon@freightnet.com",
+    plan: "Starter",
+    maxUsers: 5,
+    activeUsers: 3,
+    status: "Pending",
+    mrr: 299,
+    createdAt: "2026-06-18",
+  },
+  {
+    id: "CLI-104",
+    name: "Vanguard Transports Inc",
+    ownerName: "Devon Vance",
+    ownerEmail: "devon@vanguardlogistics.org",
+    plan: "Enterprise",
+    maxUsers: 50,
+    activeUsers: 41,
+    status: "Suspended",
+    mrr: 1999,
+    createdAt: "2025-11-04",
+  },
+];
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(null);
@@ -160,7 +229,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   // Determine user role: check local override first, then Clerk user metadata, default to 'admin'
   const clerkRole = (user?.publicMetadata?.role as UserRole) || (user?.unsafeMetadata?.role as UserRole) || "admin";
   const userRole: UserRole = localRoleOverride !== null ? localRoleOverride : clerkRole;
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "super_admin";
+  const isSuperAdmin = userRole === "super_admin";
 
   const setUserRole = async (role: UserRole) => {
     setLocalRoleOverride(role);
@@ -189,6 +259,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(initialMockOrders);
   const [retailers, setRetailers] = useState<Retailer[]>(initialMockRetailers);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
+  const [clients, setClients] = useState<ClientBusiness[]>(initialMockClients);
 
   const addLog = (title: string, description: string, type: ActivityLog["type"]) => {
     const newLog: ActivityLog = {
@@ -199,6 +270,46 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       type,
     };
     setActivityLogs(prev => [newLog, ...prev.slice(0, 15)]);
+  };
+
+  const addClientBusiness = (clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
+    const planMrrMap: Record<string, number> = {
+      Starter: 299,
+      Professional: 799,
+      Enterprise: 1999,
+    };
+
+    const newClient: ClientBusiness = {
+      ...clientData,
+      id: `CLI-${100 + clients.length + 1}`,
+      activeUsers: 1,
+      mrr: planMrrMap[clientData.plan] || 799,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+
+    setClients(prev => [newClient, ...prev]);
+    addLog(`Client Onboarded: ${newClient.name}`, `Provisioned ${newClient.plan} account for ${newClient.ownerEmail}`, "retailer");
+  };
+
+  const toggleClientStatus = (id: string) => {
+    setClients(prev =>
+      prev.map(client => {
+        if (client.id === id) {
+          const nextStatus: ClientBusiness["status"] = client.status === "Active" ? "Suspended" : "Active";
+          addLog(`Client Access ${nextStatus}`, `${client.name} status updated to ${nextStatus}`, "retailer");
+          return { ...client, status: nextStatus };
+        }
+        return client;
+      })
+    );
+  };
+
+  const deleteClientBusiness = (id: string) => {
+    const target = clients.find(c => c.id === id);
+    if (target) {
+      setClients(prev => prev.filter(c => c.id !== id));
+      addLog(`Client Account Deleted`, `Removed ${target.name} from SaaS platform`, "retailer");
+    }
   };
 
   const [fleet] = useState<FleetVehicle[]>([
@@ -435,12 +546,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       value={{
         userRole,
         isAdmin,
+        isSuperAdmin,
         setUserRole,
         inventory,
         orders,
         retailers,
         fleet,
         activityLogs,
+        clients,
         searchQuery,
         setSearchQuery,
         isModalOpen,
@@ -460,6 +573,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         addRetailer,
         updateRetailer,
         deleteRetailer,
+        addClientBusiness,
+        toggleClientStatus,
+        deleteClientBusiness,
       }}
     >
       {children}
