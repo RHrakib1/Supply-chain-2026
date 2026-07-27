@@ -226,6 +226,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(null);
 
+  // Load initial role from localStorage if present
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("userRole") as UserRole | null;
+      if (saved && (saved === "admin" || saved === "user" || saved === "super_admin")) {
+        setLocalRoleOverride(saved);
+      }
+    }
+  }, []);
+
   // Determine user role: check local override first, then Clerk user metadata, default to 'admin'
   const clerkRole = (user?.publicMetadata?.role as UserRole) || (user?.unsafeMetadata?.role as UserRole) || "admin";
   const userRole: UserRole = localRoleOverride !== null ? localRoleOverride : clerkRole;
@@ -234,6 +244,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const setUserRole = async (role: UserRole) => {
     setLocalRoleOverride(role);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userRole", role);
+    }
     if (user) {
       try {
         await user.update({

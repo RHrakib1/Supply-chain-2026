@@ -27,13 +27,8 @@ export default clerkMiddleware(async (auth, req) => {
     (sessionClaims?.publicMetadata as Record<string, unknown>)?.role ||
     (sessionClaims?.unsafeMetadata as Record<string, unknown>)?.role;
 
-  // Protect Super Admin Portal (/super-admin) exclusively for super_admin role
-  if (isSuperAdminRoute(req) && role !== "super_admin") {
-    return NextResponse.redirect(new URL("/", req.url));
-  }
-
-  // Redirect normal 'user' role attempting to open restricted admin pages to /route-tracking
-  if (role === "user" && isRestrictedAdminRoute(req)) {
+  // Redirect normal 'user' role attempting to open restricted admin or super-admin pages to /route-tracking
+  if (role === "user" && (isRestrictedAdminRoute(req) || isSuperAdminRoute(req))) {
     return NextResponse.redirect(new URL("/route-tracking", req.url));
   }
 });
