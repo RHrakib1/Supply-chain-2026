@@ -1,20 +1,26 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useUser } from "@clerk/nextjs";
 import {
   fetchSupabaseInventory,
   fetchSupabaseOrders,
   fetchSupabaseRetailers,
   insertSupabaseInventoryItem,
   updateSupabaseInventoryQty,
+  deleteSupabaseInventoryItem,
   insertSupabaseOrder,
   updateSupabaseOrderStatus,
+  deleteSupabaseOrder,
   insertSupabaseRetailer,
   updateSupabaseRetailer,
+  deleteSupabaseRetailer,
   seedSupabaseData,
   isSupabaseConfigured,
 } from "@/lib/supabaseService";
 import { supabase } from "@/lib/supabase";
+
+export type UserRole = "admin" | "user";
 
 // Types
 export interface InventoryItem {
@@ -73,6 +79,9 @@ export interface FleetVehicle {
 }
 
 interface DashboardContextType {
+  userRole: UserRole;
+  isAdmin: boolean;
+  setUserRole: (role: UserRole) => Promise<void>;
   inventory: InventoryItem[];
   orders: Order[];
   retailers: Retailer[];
@@ -89,10 +98,13 @@ interface DashboardContextType {
   seedDatabase: () => Promise<void>;
   addSku: (item: Omit<InventoryItem, "status">) => void;
   restockSku: (sku: string) => void;
+  deleteSku: (sku: string) => void;
   updateOrderStatus: (id: string, status: Order["status"]) => void;
   createOrder: (retailerName: string, itemsList: { sku: string; qty: number }[]) => void;
+  deleteOrder: (id: string) => void;
   addRetailer: (retailer: Partial<Retailer>) => void;
   updateRetailer: (id: string, updates: Partial<Retailer>) => void;
+  deleteRetailer: (id: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -126,6 +138,30 @@ const initialMockRetailers: Retailer[] = [
 ];
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useUser();
+  const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(null);
+
+  // Determine user role: check local override first, then Clerk user metadata, default to 'admin'
+  const clerkRole = (user?.publicMetadata?.role as UserRole) || (user?.unsafeMetadata?.role as UserRole) || "admin";
+  const userRole: UserRole = localRoleOverride !== null ? localRoleOverride : clerkRole;
+  const isAdmin = userRole === "admin";
+
+  const setUserRole = async (role: UserRole) => {
+    setLocalRoleOverride(role);
+    if (user) {
+      try {
+        await user.update({
+          unsafeMetadata: {
+            ...user.unsafeMetadata,
+            role,
+          },
+        });
+      } catch (err) {
+        console.warn("Notice updating Clerk user metadata:", err);
+      }
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -240,6 +276,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const deleteSku = (sku: string) => {
+    setInventory(prev => prev.filter(item => item.sku !== sku));
+    deleteSupabaseInventoryItem(sku);
+  };
+
   const updateOrderStatus = (orderId: string, status: Order["status"]) => {
     setOrders(prev =>
       prev.map(order => {
@@ -309,6 +350,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     insertSupabaseOrder(newOrder);
   };
 
+  const deleteOrder = (id: string) => {
+    setOrders(prev => prev.filter(o => o.id !== id));
+    deleteSupabaseOrder(id);
+  };
+
   const addRetailer = (newRetailer: Partial<Retailer>) => {
     const retailerItem: Retailer = {
       id: `RET-0${retailers.length + 1}`,
@@ -341,9 +387,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const deleteRetailer = (id: string) => {
+    setRetailers(prev => prev.filter(r => r.id !== id));
+    deleteSupabaseRetailer(id);
+  };
+
   return (
     <DashboardContext.Provider
       value={{
+        userRole,
+        isAdmin,
+        setUserRole,
         inventory,
         orders,
         retailers,
@@ -360,10 +414,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         seedDatabase,
         addSku,
         restockSku,
+        deleteSku,
         updateOrderStatus,
         createOrder,
+        deleteOrder,
         addRetailer,
         updateRetailer,
+        deleteRetailer,
       }}
     >
       {children}

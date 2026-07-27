@@ -11,8 +11,11 @@ import {
   BarChart3, 
   X,
   Truck,
-  Settings
+  Settings,
+  Shield,
+  User
 } from "lucide-react";
+import { useDashboard } from "@/context/DashboardContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,15 +24,19 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { userRole, isAdmin } = useDashboard();
 
-  const menuItems = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Inventory", href: "/inventory", icon: Package },
-    { name: "Orders", href: "/orders", icon: ShoppingCart },
-    { name: "Retailers", href: "/retailers", icon: Store },
-    { name: "Route Tracking", href: "/route-tracking", icon: MapPin },
-    { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  const allMenuItems = [
+    { name: "Dashboard", href: "/", icon: LayoutDashboard, adminOnly: true },
+    { name: "Inventory", href: "/inventory", icon: Package, adminOnly: true },
+    { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false },
+    { name: "Retailers", href: "/retailers", icon: Store, adminOnly: true },
+    { name: "Route Tracking", href: "/route-tracking", icon: MapPin, adminOnly: false },
+    { name: "Analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
   ];
+
+  // Filter menu items based on user role
+  const visibleMenuItems = allMenuItems.filter(item => isAdmin || !item.adminOnly);
 
   return (
     <>
@@ -50,7 +57,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-white/10 bg-slate-950/20">
           <LinkComponent 
-            href="/" 
+            href={isAdmin ? "/" : "/route-tracking"} 
             className="flex items-center gap-2 group text-left focus:outline-none"
           >
             <div className="p-2 bg-indigo-600 rounded-lg group-hover:bg-indigo-500 transition-colors duration-300 shadow-lg shadow-indigo-600/30">
@@ -71,10 +78,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Sidebar Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mb-3">
-            Core Operations
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mb-3 flex items-center justify-between">
+            <span>Core Operations</span>
+            <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+              isAdmin ? "bg-indigo-500/20 text-indigo-400" : "bg-emerald-500/20 text-emerald-400"
+            }`}>
+              {userRole}
+            </span>
           </div>
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
@@ -105,20 +117,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-white/10 bg-slate-950/20 space-y-2">
-          <LinkComponent
-            href="/settings"
-            className="flex items-center gap-3 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group"
-          >
-            <Settings className="h-4 w-4 text-slate-500 group-hover:text-slate-300" />
-            <span>Settings</span>
-          </LinkComponent>
+          {isAdmin && (
+            <LinkComponent
+              href="/settings"
+              className="flex items-center gap-3 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group"
+            >
+              <Settings className="h-4 w-4 text-slate-500 group-hover:text-slate-300" />
+              <span>Settings</span>
+            </LinkComponent>
+          )}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
-            <div className="h-8 w-8 rounded-full bg-indigo-500/25 flex items-center justify-center text-indigo-400 font-semibold text-sm border border-indigo-500/20">
-              HQ
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-semibold text-sm border ${
+              isAdmin ? "bg-indigo-500/25 text-indigo-400 border-indigo-500/20" : "bg-emerald-500/25 text-emerald-400 border-emerald-500/20"
+            }`}>
+              {isAdmin ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">Central Hub</p>
-              <p className="text-[10px] text-slate-400 truncate">Admin Terminal</p>
+              <p className="text-xs font-semibold text-white truncate">
+                {isAdmin ? "Central Hub" : "Field Operations"}
+              </p>
+              <p className="text-[10px] text-slate-400 truncate uppercase font-bold">
+                {isAdmin ? "Admin Terminal" : "Driver/Retailer Portal"}
+              </p>
             </div>
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -130,3 +150,4 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     </>
   );
 }
+

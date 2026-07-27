@@ -1,10 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import RetailersView from "@/components/RetailersView";
 
 export default function RetailersPage() {
-  const { retailers, searchQuery } = useDashboard();
+  const router = useRouter();
+  const { retailers, searchQuery, isAdmin } = useDashboard();
+
+  useEffect(() => {
+    if (!isAdmin) {
+      router.replace("/route-tracking");
+    }
+  }, [isAdmin, router]);
+
+  if (!isAdmin) return null;
 
   return (
     <RetailersView 
@@ -13,3 +24,4 @@ export default function RetailersPage() {
     />
   );
 }
+

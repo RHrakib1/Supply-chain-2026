@@ -6,11 +6,13 @@ import {
   Filter, 
   Plus, 
   Edit, 
+  Trash2,
   AlertTriangle, 
   CheckCircle2, 
   XCircle, 
   Download
 } from "lucide-react";
+import { useDashboard } from "@/context/DashboardContext";
 
 interface InventoryItem {
   sku: string;
@@ -31,6 +33,7 @@ interface InventoryViewProps {
 }
 
 export default function InventoryView({ inventory, searchQuery, onRestock, onOpenAddSkuModal }: InventoryViewProps) {
+  const { isAdmin, deleteSku } = useDashboard();
   const [statusFilter, setStatusFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
 
@@ -104,19 +107,22 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
             <Download className="h-4 w-4" />
             Export CSV
           </button>
-          {/* Add SKU Button */}
-          <button 
-            onClick={onOpenAddSkuModal}
-            className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30"
-          >
-            <Plus className="h-4 w-4" />
-            Add New SKU
-          </button>
+          
+          {/* Add SKU Button - Admin Only */}
+          {isAdmin && (
+            <button 
+              onClick={onOpenAddSkuModal}
+              className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Add New SKU
+            </button>
+          )}
         </div>
       </div>
 
       {/* Aggregate Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"} gap-4`}>
         <div className="glass-panel p-4 rounded-xl">
           <span className="text-xs font-medium text-slate-400">Total Unique SKUs</span>
           <span className="block text-2xl font-extrabold text-white mt-1">{totalSkuCount}</span>
@@ -127,12 +133,17 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
             {totalStockQuantity.toLocaleString()}
           </span>
         </div>
-        <div className="glass-panel p-4 rounded-xl">
-          <span className="text-xs font-medium text-slate-400">Total Asset Value</span>
-          <span className="block text-2xl font-extrabold text-indigo-400 mt-1">
-            ${totalAssetValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
+        
+        {/* Total Asset Value (Financial Total) - Admin Only */}
+        {isAdmin && (
+          <div className="glass-panel p-4 rounded-xl">
+            <span className="text-xs font-medium text-slate-400">Total Asset Value</span>
+            <span className="block text-2xl font-extrabold text-indigo-400 mt-1">
+              ${totalAssetValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
+
         <div className="glass-panel p-4 rounded-xl border-l-4 border-rose-500">
           <span className="text-xs font-medium text-slate-400">Critical Alerts</span>
           <span className="block text-2xl font-extrabold text-rose-400 mt-1">{alertCount}</span>
@@ -194,10 +205,10 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
                 <th className="py-4 px-6">Category</th>
                 <th className="py-4 px-6">Warehouse Location</th>
                 <th className="py-4 px-6">Current Stock</th>
-                <th className="py-4 px-6">Unit Price</th>
-                <th className="py-4 px-6">Total Value</th>
+                {isAdmin && <th className="py-4 px-6">Unit Price</th>}
+                {isAdmin && <th className="py-4 px-6">Total Value</th>}
                 <th className="py-4 px-6">Status</th>
-                <th className="py-4 px-6 text-center">Actions</th>
+                {isAdmin && <th className="py-4 px-6 text-center">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -218,35 +229,55 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
                         <span className="font-semibold text-slate-200">{item.qty}</span>
                         <span className="text-[10px] text-slate-500 block">Min req: {item.minRequired}</span>
                       </td>
-                      <td className="py-4 px-6 text-slate-400">${item.unitPrice.toFixed(2)}</td>
-                      <td className="py-4 px-6 text-slate-200 font-medium">
-                        ${(item.qty * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+
+                      {isAdmin && (
+                        <td className="py-4 px-6 text-slate-400">${item.unitPrice.toFixed(2)}</td>
+                      )}
+                      {isAdmin && (
+                        <td className="py-4 px-6 text-slate-200 font-medium">
+                          ${(item.qty * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
+
                       <td className="py-4 px-6">
                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${getStatusStyle(item.status)}`}>
                           <StatusIcon className="h-3 w-3" />
                           {item.status}
                         </span>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => onRestock(item.sku)}
-                            className="text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500 hover:text-white border border-indigo-500/25 text-indigo-400 px-3 py-1.5 rounded-lg transition-all duration-300"
-                          >
-                            Restock (+50)
-                          </button>
-                          <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
+
+                      {isAdmin && (
+                        <td className="py-4 px-6">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => onRestock(item.sku)}
+                              className="text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500 hover:text-white border border-indigo-500/25 text-indigo-400 px-3 py-1.5 rounded-lg transition-all duration-300 cursor-pointer"
+                            >
+                              Restock (+50)
+                            </button>
+                            <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete SKU ${item.sku}?`)) {
+                                  deleteSku(item.sku);
+                                }
+                              }}
+                              title="Delete Item (Admin Only)"
+                              className="p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 font-medium">
+                  <td colSpan={isAdmin ? 9 : 6} className="py-12 text-center text-slate-500 font-medium">
                     No SKU items found matching filters.
                   </td>
                 </tr>
@@ -258,3 +289,4 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
     </div>
   );
 }
+

@@ -242,6 +242,27 @@ export async function updateSupabaseRetailer(id: string, updates: Partial<Retail
   if (error) console.error("Error updating retailer:", error.message);
 }
 
+// --- DELETE OPERATIONS (ADMIN ONLY) ---
+export async function deleteSupabaseInventoryItem(sku: string) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from("inventory").delete().eq("sku", sku);
+  if (error) console.error("Error deleting inventory item:", error.message);
+}
+
+export async function deleteSupabaseOrder(orderId: string) {
+  if (!isSupabaseConfigured()) return;
+  const { error: err1 } = await supabase.from("orders").delete().eq("shipment_id", orderId);
+  if (err1) {
+    await supabase.from("orders").delete().eq("id", orderId);
+  }
+}
+
+export async function deleteSupabaseRetailer(id: string) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from("retailers").delete().eq("id", id);
+  if (error) console.error("Error deleting retailer:", error.message);
+}
+
 // --- SEED DUMMY DATA ---
 export async function seedSupabaseData(
   initialInventory: InventoryItem[],
@@ -287,3 +308,27 @@ export async function seedSupabaseData(
 
   return { success: true };
 }
+
+/*
+  ===================================================================
+  SUPABASE ROW LEVEL SECURITY (RLS) & CLERK ROLE INTEGRATION REFERENCE
+  ===================================================================
+  To enforce RBAC at the Supabase database level using Clerk JWT claims:
+
+  1. Enable RLS on tables:
+     ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+     ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+     ALTER TABLE retailers ENABLE ROW LEVEL SECURITY;
+
+  2. Create Admin full-access policies:
+     CREATE POLICY "Admin Full Access Inventory" ON inventory FOR ALL
+     USING (auth.jwt() -> 'user_metadata' ->> 'role' = 'admin' OR auth.jwt() ->> 'role' = 'service_role');
+
+  3. Create Normal User read-only / restricted policies:
+     CREATE POLICY "User Read-Only Inventory" ON inventory FOR SELECT
+     USING (true);
+
+     CREATE POLICY "User Order Read & Update" ON orders FOR SELECT
+     USING (true);
+*/
+

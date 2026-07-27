@@ -1,12 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import DashboardView from "@/components/DashboardView";
 
 export default function Home() {
   const router = useRouter();
-  const { inventory, orders, setIsModalOpen } = useDashboard();
+  const { inventory, orders, setIsModalOpen, isAdmin } = useDashboard();
+
+  useEffect(() => {
+    if (!isAdmin) {
+      router.replace("/route-tracking");
+    }
+  }, [isAdmin, router]);
+
+  if (!isAdmin) return null;
 
   const handleNavigate = (tab: string) => {
     const routeMap: Record<string, string> = {

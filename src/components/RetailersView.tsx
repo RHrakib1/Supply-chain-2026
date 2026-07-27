@@ -12,6 +12,7 @@ import {
   Plus,
   X,
   Edit3,
+  Trash2,
   CheckCircle2
 } from "lucide-react";
 import { useDashboard, Retailer } from "@/context/DashboardContext";
@@ -22,7 +23,7 @@ interface RetailersViewProps {
 }
 
 export default function RetailersView({ retailers, searchQuery }: RetailersViewProps) {
-  const { addRetailer, updateRetailer } = useDashboard();
+  const { addRetailer, updateRetailer, deleteRetailer, isAdmin } = useDashboard();
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Modal States
@@ -140,17 +141,21 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
             Oversee corporate logistics agreements, performance metrics, and contact portals.
           </p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 w-fit cursor-pointer"
-        >
-          <Plus className="h-4 w-4" />
-          Onboard New Retailer
-        </button>
+        
+        {/* Onboard New Retailer Button - Admin Only */}
+        {isAdmin && (
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 w-fit cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Onboard New Retailer
+          </button>
+        )}
       </div>
 
       {/* Network Health Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${isAdmin ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-6`}>
         <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
           <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/20">
             <Activity className="h-6 w-6" />
@@ -161,15 +166,18 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
           </div>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
-            <DollarSign className="h-6 w-6" />
+        {/* Total B2B Contract Value - Admin Only */}
+        {isAdmin && (
+          <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
+            <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
+              <DollarSign className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Total B2B Contract Value</span>
+              <span className="block text-2xl font-extrabold text-white mt-1">${(totalContractValue / 1000).toFixed(0)}k</span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs text-slate-400 font-medium">Total B2B Contract Value</span>
-            <span className="block text-2xl font-extrabold text-white mt-1">${(totalContractValue / 1000).toFixed(0)}k</span>
-          </div>
-        </div>
+        )}
 
         <div className="glass-panel p-5 rounded-2xl flex items-center gap-4 border-l-4 border-amber-500">
           <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20">
@@ -232,15 +240,19 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 my-5 py-4 border-y border-white/5 bg-slate-950/15 rounded-xl px-2.5">
+                <div className={`grid ${isAdmin ? "grid-cols-3" : "grid-cols-2"} gap-3 my-5 py-4 border-y border-white/5 bg-slate-950/15 rounded-xl px-2.5`}>
                   <div>
                     <span className="text-[9px] text-slate-500 block uppercase font-bold">Orders</span>
                     <span className="font-bold text-white text-sm">{r.totalOrders}</span>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-slate-500 block uppercase font-bold">Total Sales</span>
-                    <span className="font-bold text-indigo-400 text-sm">${(r.totalVolume / 1000).toFixed(0)}k</span>
-                  </div>
+                  
+                  {isAdmin && (
+                    <div>
+                      <span className="text-[9px] text-slate-500 block uppercase font-bold">Total Sales</span>
+                      <span className="font-bold text-indigo-400 text-sm">${(r.totalVolume / 1000).toFixed(0)}k</span>
+                    </div>
+                  )}
+
                   <div>
                     <span className="text-[9px] text-slate-500 block uppercase font-bold">On-Time %</span>
                     <span className={`font-bold text-sm ${r.onTimeRate >= 95 ? "text-emerald-400" : "text-amber-400"}`}>
@@ -270,12 +282,28 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
                   <span className={`inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-full border ${getStatusBadge(r.status)}`}>
                     {r.status}
                   </span>
-                  <button 
-                    onClick={() => handleOpenEdit(r)}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                  >
-                    Modify Agreement &rarr;
-                  </button>
+                  
+                  {isAdmin && (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleOpenEdit(r)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        Modify Agreement &rarr;
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete retailer ${r.name}?`)) {
+                            deleteRetailer(r.id);
+                          }
+                        }}
+                        title="Delete Retailer (Admin Only)"
+                        className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -284,6 +312,7 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
           <p className="col-span-full py-12 text-center text-slate-500 text-xs font-semibold">No B2B partners match search parameters.</p>
         )}
       </div>
+
 
       {/* --- MODAL 1: Onboard New Retailer --- */}
       {isAddModalOpen && (

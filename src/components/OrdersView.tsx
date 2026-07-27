@@ -9,8 +9,10 @@ import {
   Calendar, 
   User, 
   ExternalLink,
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react";
+import { useDashboard } from "@/context/DashboardContext";
 
 interface Order {
   id: string;
@@ -34,6 +36,7 @@ interface OrdersViewProps {
 }
 
 export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, onOpenOrderModal }: OrdersViewProps) {
+  const { isAdmin, deleteOrder } = useDashboard();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("All");
 
@@ -98,7 +101,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
         </div>
         <button
           onClick={onOpenOrderModal}
-          className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 w-fit focus:outline-none"
+          className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 w-fit focus:outline-none cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Process New Sales Order
@@ -148,7 +151,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                     <th className="py-4 px-5">Order ID</th>
                     <th className="py-4 px-5">Retailer</th>
                     <th className="py-4 px-5">Items</th>
-                    <th className="py-4 px-5">Value</th>
+                    {isAdmin && <th className="py-4 px-5">Value</th>}
                     <th className="py-4 px-5">Status Dropdown</th>
                     <th className="py-4 px-5"></th>
                   </tr>
@@ -175,7 +178,10 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                           </span>
                         </td>
                         <td className="py-4 px-5 text-slate-300 font-medium max-w-[150px] truncate">{o.items}</td>
-                        <td className="py-4 px-5 font-semibold text-indigo-400">${o.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        
+                        {isAdmin && (
+                          <td className="py-4 px-5 font-semibold text-indigo-400">${o.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        )}
                         
                         {/* Interactive Status Selector Dropdown */}
                         <td className="py-4 px-5" onClick={(e) => e.stopPropagation()}>
@@ -198,14 +204,29 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                           </div>
                         </td>
 
-                        <td className="py-4 px-5 text-slate-400 group-hover:text-white text-right">
-                          <ChevronRight className="h-4 w-4 inline-block group-hover:translate-x-1 transition-transform" />
+                        <td className="py-4 px-5 text-slate-400 text-right">
+                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete order ${o.id}?`)) {
+                                    deleteOrder(o.id);
+                                  }
+                                }}
+                                title="Delete Order (Admin Only)"
+                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          </div>
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
+                      <td colSpan={isAdmin ? 6 : 5} className="py-12 text-center text-slate-500 font-medium">
                         No orders found matching filters.
                       </td>
                     </tr>
@@ -215,6 +236,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
             </div>
           </div>
         </div>
+
 
         {/* Right Side: Stepper & Tracking Details */}
         {activeOrder ? (
