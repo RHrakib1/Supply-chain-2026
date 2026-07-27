@@ -182,7 +182,11 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                           <div className="relative">
                             <select
                               value={o.status}
-                              onChange={(e) => onUpdateOrderStatus(o.id, e.target.value as Order["status"])}
+                              onChange={(e) => {
+                                const newStatus = e.target.value as Order["status"];
+                                onUpdateOrderStatus(o.id, newStatus);
+                                setSelectedOrderId(o.id);
+                              }}
                               className={`text-[10px] font-bold px-2.5 py-1 rounded-full border bg-slate-900/60 focus:outline-none focus:ring-1 focus:ring-indigo-500 select-status cursor-pointer ${getStatusBadge(o.status)}`}
                             >
                               <option value="Pending" className="bg-slate-950 text-slate-400">Pending</option>

@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import Modal from "./Modal";
 import OrderModal from "./OrderModal";
+import Preloader from "./Preloader";
 import { useDashboard } from "@/context/DashboardContext";
 
 interface DashboardLayoutProps {
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setIsModalOpen, 
     isOrderModalOpen, 
     setIsOrderModalOpen, 
+    isLoading,
     addSku, 
     createOrder,
     retailers,
@@ -28,6 +30,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent">
+      {/* Global Hydration & Supabase Preloader Overlay */}
+      <Preloader isLoading={isLoading} />
       {/* Sidebar with standard Next.js route navigation */}
       <Sidebar 
         isOpen={sidebarOpen} 

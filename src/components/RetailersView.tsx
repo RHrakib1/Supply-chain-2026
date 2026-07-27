@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Search, 
   MapPin, 
@@ -9,22 +9,12 @@ import {
   ShieldAlert, 
   DollarSign, 
   Activity,
-  Plus
+  Plus,
+  X,
+  Edit3,
+  CheckCircle2
 } from "lucide-react";
-
-interface Retailer {
-  id: string;
-  name: string;
-  contact: string;
-  email: string;
-  phone: string;
-  location: string;
-  totalOrders: number;
-  totalVolume: number; // in $
-  onTimeRate: number; // percentage
-  status: "Active" | "Under Review" | "Suspended";
-  grade: "A+" | "A" | "B" | "C";
-}
+import { useDashboard, Retailer } from "@/context/DashboardContext";
 
 interface RetailersViewProps {
   retailers: Retailer[];
@@ -32,7 +22,31 @@ interface RetailersViewProps {
 }
 
 export default function RetailersView({ retailers, searchQuery }: RetailersViewProps) {
+  const { addRetailer, updateRetailer } = useDashboard();
   const [statusFilter, setStatusFilter] = useState("All");
+
+  // Modal States
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingRetailer, setEditingRetailer] = useState<Retailer | null>(null);
+
+  // New Retailer Form State
+  const [newRetailer, setNewRetailer] = useState({
+    name: "",
+    contact: "",
+    email: "",
+    phone: "",
+    location: "",
+    totalVolume: 50000,
+  });
+
+  // Edit Retailer Form State
+  const [editForm, setEditForm] = useState({
+    status: "Active" as Retailer["status"],
+    grade: "A+" as Retailer["grade"],
+    totalVolume: 0,
+    contact: "",
+    phone: "",
+  });
 
   const filteredRetailers = useMemo(() => {
     return retailers.filter(r => {
@@ -43,6 +57,14 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
       return matchesSearch && matchesStatus;
     });
   }, [retailers, searchQuery, statusFilter]);
+
+  const totalContractValue = useMemo(() => {
+    return retailers.reduce((sum, r) => sum + (r.totalVolume || 0), 0);
+  }, [retailers]);
+
+  const reviewAccountsCount = useMemo(() => {
+    return retailers.filter(r => r.status === "Under Review").length;
+  }, [retailers]);
 
   const getGradeStyle = (grade: string) => {
     switch (grade) {
@@ -63,6 +85,51 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
     }
   };
 
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRetailer.name.trim()) return;
+
+    addRetailer({
+      name: newRetailer.name.trim(),
+      contact: newRetailer.contact.trim() || "Logistics Ops",
+      email: newRetailer.email.trim() || `${newRetailer.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@retailer.com`,
+      phone: newRetailer.phone.trim() || "+1 (555) 019-2834",
+      location: newRetailer.location.trim() || "North Region",
+      totalVolume: Number(newRetailer.totalVolume) || 50000,
+      status: "Active",
+      grade: "A+",
+    });
+
+    setNewRetailer({ name: "", contact: "", email: "", phone: "", location: "", totalVolume: 50000 });
+    setIsAddModalOpen(false);
+  };
+
+  const handleOpenEdit = (retailer: Retailer) => {
+    setEditingRetailer(retailer);
+    setEditForm({
+      status: retailer.status,
+      grade: retailer.grade,
+      totalVolume: retailer.totalVolume,
+      contact: retailer.contact,
+      phone: retailer.phone,
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRetailer) return;
+
+    updateRetailer(editingRetailer.id, {
+      status: editForm.status,
+      grade: editForm.grade,
+      totalVolume: Number(editForm.totalVolume),
+      contact: editForm.contact.trim(),
+      phone: editForm.phone.trim(),
+    });
+
+    setEditingRetailer(null);
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -73,7 +140,10 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
             Oversee corporate logistics agreements, performance metrics, and contact portals.
           </p>
         </div>
-        <button className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 w-fit">
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/30 w-fit cursor-pointer"
+        >
           <Plus className="h-4 w-4" />
           Onboard New Retailer
         </button>
@@ -97,7 +167,7 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
           </div>
           <div>
             <span className="text-xs text-slate-400 font-medium">Total B2B Contract Value</span>
-            <span className="block text-2xl font-extrabold text-white mt-1">$2,327,000</span>
+            <span className="block text-2xl font-extrabold text-white mt-1">${(totalContractValue / 1000).toFixed(0)}k</span>
           </div>
         </div>
 
@@ -107,7 +177,7 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
           </div>
           <div>
             <span className="text-xs text-slate-400 font-medium">Partners Under Review</span>
-            <span className="block text-2xl font-extrabold text-amber-400 mt-1">1 Account</span>
+            <span className="block text-2xl font-extrabold text-amber-400 mt-1">{reviewAccountsCount} {reviewAccountsCount === 1 ? "Account" : "Accounts"}</span>
           </div>
         </div>
       </div>
@@ -120,7 +190,7 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
           {searchQuery ? (
             <span>Filtering partners: &quot;<strong className="text-indigo-400">{searchQuery}</strong>&quot; ({filteredRetailers.length} results)</span>
           ) : (
-            <span className="text-xs text-slate-550">Navbar search connects here</span>
+            <span className="text-xs text-slate-400">Filter or search by retailer partner name or contact person</span>
           )}
         </div>
 
@@ -200,7 +270,10 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
                   <span className={`inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-full border ${getStatusBadge(r.status)}`}>
                     {r.status}
                   </span>
-                  <button className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
+                  <button 
+                    onClick={() => handleOpenEdit(r)}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                  >
                     Modify Agreement &rarr;
                   </button>
                 </div>
@@ -211,6 +284,219 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
           <p className="col-span-full py-12 text-center text-slate-500 text-xs font-semibold">No B2B partners match search parameters.</p>
         )}
       </div>
+
+      {/* --- MODAL 1: Onboard New Retailer --- */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="glass-panel w-full max-w-md rounded-2xl border border-white/15 p-6 shadow-2xl bg-slate-950/90 relative animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-white">Onboard New Retailer</h3>
+              </div>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSubmit} className="space-y-4 mt-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Partner / Retailer Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Costco North Distribution"
+                  value={newRetailer.name}
+                  onChange={(e) => setNewRetailer({ ...newRetailer, name: e.target.value })}
+                  className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Person</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sarah Connor"
+                    value={newRetailer.contact}
+                    onChange={(e) => setNewRetailer({ ...newRetailer, contact: e.target.value })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="+1 (555) 019-2834"
+                    value={newRetailer.phone}
+                    onChange={(e) => setNewRetailer({ ...newRetailer, phone: e.target.value })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Corporate Email</label>
+                <input
+                  type="email"
+                  placeholder="logistics@retailer.com"
+                  value={newRetailer.email}
+                  onChange={(e) => setNewRetailer({ ...newRetailer, email: e.target.value })}
+                  className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Location / Hub</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Seattle, WA"
+                    value={newRetailer.location}
+                    onChange={(e) => setNewRetailer({ ...newRetailer, location: e.target.value })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Initial Volume ($)</label>
+                  <input
+                    type="number"
+                    placeholder="50000"
+                    value={newRetailer.totalVolume}
+                    onChange={(e) => setNewRetailer({ ...newRetailer, totalVolume: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all shadow-lg shadow-indigo-600/30 cursor-pointer"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Save & Save to Supabase
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 2: Modify Agreement --- */}
+      {editingRetailer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="glass-panel w-full max-w-md rounded-2xl border border-white/15 p-6 shadow-2xl bg-slate-950/90 relative animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-indigo-400" />
+                <div>
+                  <h3 className="text-lg font-bold text-white">Modify Partner Agreement</h3>
+                  <p className="text-xs text-indigo-400 font-semibold">{editingRetailer.name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setEditingRetailer(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Partnership Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as Retailer["status"] })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="Active" className="bg-slate-950">Active</option>
+                    <option value="Under Review" className="bg-slate-950">Under Review</option>
+                    <option value="Suspended" className="bg-slate-950">Suspended</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Performance Grade</label>
+                  <select
+                    value={editForm.grade}
+                    onChange={(e) => setEditForm({ ...editForm, grade: e.target.value as Retailer["grade"] })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="A+" className="bg-slate-950">A+ (Tier 1)</option>
+                    <option value="A" className="bg-slate-950">A (High)</option>
+                    <option value="B" className="bg-slate-950">B (Standard)</option>
+                    <option value="C" className="bg-slate-950">C (Needs Imp)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Contract Volume ($)</label>
+                <input
+                  type="number"
+                  value={editForm.totalVolume}
+                  onChange={(e) => setEditForm({ ...editForm, totalVolume: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Person</label>
+                  <input
+                    type="text"
+                    value={editForm.contact}
+                    onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full px-3.5 py-2 text-sm bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingRetailer(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all shadow-lg shadow-indigo-600/30 cursor-pointer"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Update Agreement
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

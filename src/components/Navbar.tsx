@@ -5,16 +5,14 @@ import {
   Bell, 
   Search, 
   Menu, 
-  ChevronDown, 
-  User, 
-  LogOut, 
-  Settings, 
-  Shield,
   Clock,
   Package,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Database
 } from "lucide-react";
+import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
+import { useDashboard } from "@/context/DashboardContext";
 
 interface NavbarProps {
   onToggleSidebar: () => void;
@@ -23,20 +21,15 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }: NavbarProps) {
+  const { isSupabaseLive, isSeeding, seedDatabase } = useDashboard();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-
   const notifRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfile(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -99,8 +92,23 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
         </div>
       </div>
 
-      {/* Right side: Notifications, Profile */}
+      {/* Right side: Notifications, Supabase Seed, Profile */}
       <div className="flex items-center gap-3">
+        {/* Supabase Status / Seed Button */}
+        <button
+          onClick={seedDatabase}
+          disabled={isSeeding}
+          title="Click to seed sample inventory, orders, and retailers into Supabase"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-300 ${
+            isSupabaseLive
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+              : "bg-indigo-500/10 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/20"
+          }`}
+        >
+          <Database className={`h-3.5 w-3.5 ${isSeeding ? "animate-spin" : ""}`} />
+          <span className="hidden sm:inline">{isSeeding ? "Seeding..." : isSupabaseLive ? "Supabase Live" : "Seed Supabase"}</span>
+        </button>
+
         {/* Mobile Search Button (Placeholder for UI completeness) */}
         <button className="sm:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
           <Search className="h-5 w-5" />
@@ -159,51 +167,30 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
         {/* Vertical Separator */}
         <div className="h-6 w-px bg-white/10" />
 
-        {/* Profile Dropdown */}
-        <div className="relative" ref={profileRef}>
-          <button
-            onClick={() => setShowProfile(!showProfile)}
-            className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all duration-300"
-          >
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20">
-              JD
-            </div>
-            <div className="text-left hidden md:block px-1">
-              <p className="text-xs font-semibold text-white">John Doe</p>
-              <p className="text-[10px] text-indigo-400 font-medium">Logistics Director</p>
-            </div>
-            <ChevronDown className="h-4 w-4 text-slate-400 hidden md:block" />
-          </button>
-
-          {showProfile && (
-            <div className="absolute right-0 mt-3 w-56 glass-panel rounded-2xl shadow-2xl shadow-black/80 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-top-3 duration-250">
-              <div className="px-4 py-3 border-b border-white/10 bg-slate-950/40">
-                <p className="text-sm font-semibold text-white">John Doe</p>
-                <p className="text-xs text-slate-400">john.doe@logilink.com</p>
-              </div>
-              <div className="p-2 space-y-1">
-                <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                  <User className="h-4 w-4 text-slate-400" />
-                  <span>My Profile</span>
-                </button>
-                <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                  <Shield className="h-4 w-4 text-slate-400" />
-                  <span>Security Access</span>
-                </button>
-                <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                  <Settings className="h-4 w-4 text-slate-400" />
-                  <span>System Settings</span>
-                </button>
-              </div>
-              <div className="p-2 border-t border-white/10 bg-slate-950/20">
-                <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors">
-                  <LogOut className="h-4 w-4" />
-                  <span>Log Out</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Clerk Auth Controls */}
+        <Show when="signed-in">
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "h-9 w-9 rounded-xl border border-indigo-500/30 shadow-md shadow-indigo-500/20",
+              },
+            }}
+          />
+        </Show>
+        <Show when="signed-out">
+          <div className="flex items-center gap-2">
+            <SignInButton mode="modal">
+              <button className="px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300 border border-white/10">
+                Sign In
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 rounded-xl transition-all duration-300 shadow-md shadow-indigo-500/20">
+                Sign Up
+              </button>
+            </SignUpButton>
+          </div>
+        </Show>
       </div>
     </header>
   );

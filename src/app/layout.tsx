@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   description: "Advanced B2B logistics tracking, inventory management, and retailer supply chain orchestration portal.",
 };
 
+import { ClerkProvider } from "@clerk/nextjs";
 import { DashboardProvider } from "@/context/DashboardContext";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -26,9 +27,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.className} antialiased bg-[#0b0f19]`}
       >
-        <DashboardProvider>
-          <DashboardLayout>{children}</DashboardLayout>
-        </DashboardProvider>
+        <ClerkProvider>
+          <DashboardProvider>
+            <DashboardLayout>{children}</DashboardLayout>
+          </DashboardProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
