@@ -2,20 +2,20 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Crown, 
-  Building2, 
-  Users, 
-  DollarSign, 
-  ShieldAlert, 
-  Plus, 
-  Search, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Ban, 
-  Trash2, 
-  Mail, 
-  Calendar, 
+import {
+  Crown,
+  Building2,
+  Users,
+  DollarSign,
+  ShieldAlert,
+  Plus,
+  Search,
+  CheckCircle2,
+  AlertTriangle,
+  Ban,
+  Trash2,
+  Mail,
+  Calendar,
   TrendingUp,
   X,
   UserCheck
@@ -95,7 +95,7 @@ export default function SuperAdminPage() {
 
     setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges.`);
     setIsModalOpen(false);
-    
+
     // Reset form
     setName("");
     setOwnerName("");
@@ -150,7 +150,7 @@ export default function SuperAdminPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
+
         {/* Total Tenant Businesses */}
         <div className="glass-panel p-6 rounded-2xl border border-white/10 relative overflow-hidden shadow-lg">
           <div className="flex items-center justify-between text-slate-400 text-sm font-medium">
@@ -286,13 +286,12 @@ export default function SuperAdminPage() {
 
                   {/* Subscription Plan & MRR */}
                   <td className="py-4 px-4">
-                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border ${
-                      client.plan === "Enterprise"
+                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border ${client.plan === "Enterprise"
                         ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
                         : client.plan === "Professional"
-                        ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
-                        : "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                    }`}>
+                          ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
+                          : "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                      }`}>
                       {client.plan} (${client.mrr}/mo)
                     </span>
                   </td>
@@ -305,7 +304,7 @@ export default function SuperAdminPage() {
                         <span className="text-slate-500">Max {client.maxUsers}</span>
                       </div>
                       <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
                           style={{ width: `${Math.min(100, (client.activeUsers / client.maxUsers) * 100)}%` }}
                         />
@@ -315,13 +314,12 @@ export default function SuperAdminPage() {
 
                   {/* Status Badge */}
                   <td className="py-4 px-4">
-                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border flex items-center gap-1.5 w-fit ${
-                      client.status === "Active"
+                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border flex items-center gap-1.5 w-fit ${client.status === "Active"
                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                         : client.status === "Pending"
-                        ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                        : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-                    }`}>
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                          : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                      }`}>
                       {client.status === "Active" && <CheckCircle2 className="h-3 w-3" />}
                       {client.status === "Pending" && <AlertTriangle className="h-3 w-3" />}
                       {client.status === "Suspended" && <Ban className="h-3 w-3" />}
@@ -342,11 +340,10 @@ export default function SuperAdminPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => toggleClientStatus(client.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${
-                          client.status === "Active"
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${client.status === "Active"
                             ? "bg-rose-500/10 border-rose-500/25 text-rose-400 hover:bg-rose-500/20"
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20"
-                        }`}
+                          }`}
                       >
                         {client.status === "Active" ? "Suspend Access" : "Activate Access"}
                       </button>
