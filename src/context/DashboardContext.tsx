@@ -78,6 +78,14 @@ export interface FleetVehicle {
   coordinates: { x: number; y: number };
 }
 
+export interface ActivityLog {
+  id: string;
+  title: string;
+  description: string;
+  timestamp: string;
+  type: "inventory" | "order" | "retailer";
+}
+
 interface DashboardContextType {
   userRole: UserRole;
   isAdmin: boolean;
@@ -86,6 +94,7 @@ interface DashboardContextType {
   orders: Order[];
   retailers: Retailer[];
   fleet: FleetVehicle[];
+  activityLogs: ActivityLog[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   isModalOpen: boolean;
@@ -137,6 +146,13 @@ const initialMockRetailers: Retailer[] = [
   { id: "RET-05", name: "Amazon FC MD-3", contact: "Sanjay Patel", email: "spatel@amazon.com", phone: "+1 (555) 018-4422", location: "Baltimore, MD", totalOrders: 510, totalVolume: 920000, onTimeRate: 97.5, status: "Active", grade: "A" },
 ];
 
+const initialActivityLogs: ActivityLog[] = [
+  { id: "log-1", title: "Order ORD-9846 Dispatched", description: "Created new shipment for Amazon FC MD-3", timestamp: "10 mins ago", type: "order" },
+  { id: "log-2", title: "Inventory Replenishment", description: "Steel Coupler Pins (SKU-4912) restocked (+50 units)", timestamp: "25 mins ago", type: "inventory" },
+  { id: "log-3", title: "Transit Status Updated", description: "ORD-9842 marked as In Transit with FedEx Freight", timestamp: "1 hour ago", type: "order" },
+  { id: "log-4", title: "Retailer Agreement Created", description: "Walmart East Hub added to active partner network", timestamp: "3 hours ago", type: "retailer" },
+];
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(null);
@@ -172,6 +188,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [inventory, setInventory] = useState<InventoryItem[]>(initialMockInventory);
   const [orders, setOrders] = useState<Order[]>(initialMockOrders);
   const [retailers, setRetailers] = useState<Retailer[]>(initialMockRetailers);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
+
+  const addLog = (title: string, description: string, type: ActivityLog["type"]) => {
+    const newLog: ActivityLog = {
+      id: `log-${Date.now()}`,
+      title,
+      description,
+      timestamp: "Just now",
+      type,
+    };
+    setActivityLogs(prev => [newLog, ...prev.slice(0, 15)]);
+  };
 
   const [fleet] = useState<FleetVehicle[]>([
     { id: "TX-89", driver: "Albert Carter", phone: "+1 (555) 019-8822", route: "Alpha", origin: "Central Hub", destination: "Walmart East Hub", status: "Delayed", progress: 60, speed: 15, temp: 34, cargo: "Steel Pins & Assemblies", eta: "14:30 (Delayed 45 mins)", coordinates: { x: 288, y: 104 } },
@@ -239,6 +267,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsSeeding(true);
       await seedSupabaseData(initialMockInventory, initialMockOrders, initialMockRetailers);
+      addLog("Database Seeded", "Successfully populated Supabase with sample dataset", "inventory");
     } catch (err: unknown) {
       const error = err as Error;
       alert(error?.message || "Failed to seed database.");
@@ -254,6 +283,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     const itemWithStatus: InventoryItem = { ...newItem, status };
     setInventory(prev => [itemWithStatus, ...prev]);
+    addLog(`SKU Added: ${itemWithStatus.sku}`, `Added "${itemWithStatus.name}" with stock ${itemWithStatus.qty}`, "inventory");
 
     // Persist to Supabase
     insertSupabaseInventoryItem(itemWithStatus);
@@ -269,6 +299,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           else if (newQty <= item.minRequired) status = "Low Stock";
 
           updateSupabaseInventoryQty(sku, newQty, status);
+          addLog(`Restocked SKU ${sku}`, `Replenished stock by +50 units (New Qty: ${newQty})`, "inventory");
           return { ...item, qty: newQty, status };
         }
         return item;
@@ -278,6 +309,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSku = (sku: string) => {
     setInventory(prev => prev.filter(item => item.sku !== sku));
+    addLog(`Deleted SKU ${sku}`, `Removed inventory item from catalog`, "inventory");
     deleteSupabaseInventoryItem(sku);
   };
 
@@ -291,6 +323,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           else if (status === "Cancelled") eta = "Cancelled";
 
           updateSupabaseOrderStatus(orderId, status, eta);
+          addLog(`Order ${orderId} Updated`, `Status changed to ${status}`, "order");
           return { ...order, status, eta };
         }
         return order;
@@ -347,11 +380,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     });
 
     setOrders(prev => [newOrder, ...prev]);
+    addLog(`Sales Order Created (${newOrderId})`, `Assigned to ${retailerName} for $${totalPrice.toFixed(2)}`, "order");
     insertSupabaseOrder(newOrder);
   };
 
   const deleteOrder = (id: string) => {
     setOrders(prev => prev.filter(o => o.id !== id));
+    addLog(`Deleted Order ${id}`, `Removed sales order from pipeline`, "order");
     deleteSupabaseOrder(id);
   };
 
@@ -371,6 +406,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     };
 
     setRetailers(prev => [retailerItem, ...prev]);
+    addLog(`Retailer Onboarded: ${retailerItem.name}`, `Added partner account in ${retailerItem.location}`, "retailer");
     insertSupabaseRetailer(retailerItem);
   };
 
@@ -380,6 +416,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (r.id === id) {
           const updated = { ...r, ...updates };
           updateSupabaseRetailer(id, updates);
+          addLog(`Updated Partner ${r.name}`, `Status: ${updated.status}, Grade: ${updated.grade}`, "retailer");
           return updated;
         }
         return r;
@@ -389,6 +426,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const deleteRetailer = (id: string) => {
     setRetailers(prev => prev.filter(r => r.id !== id));
+    addLog(`Deleted Retailer ${id}`, `Removed partner hub from network`, "retailer");
     deleteSupabaseRetailer(id);
   };
 
@@ -402,6 +440,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         orders,
         retailers,
         fleet,
+        activityLogs,
         searchQuery,
         setSearchQuery,
         isModalOpen,

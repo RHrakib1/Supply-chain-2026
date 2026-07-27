@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { 
   TrendingUp, 
-  TrendingDown, 
   Truck, 
   Package, 
   ShoppingCart, 
@@ -11,9 +10,21 @@ import {
   ChevronRight, 
   RefreshCw,
   MapPin,
-  ArrowRight,
-  Store
+  Store,
+  Clock,
+  Activity,
+  BarChart3
 } from "lucide-react";
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer 
+} from "recharts";
+import { useDashboard } from "@/context/DashboardContext";
 
 interface InventoryItem {
   sku: string;
@@ -47,7 +58,8 @@ interface DashboardViewProps {
   onNavigate: (tab: string) => void;
 }
 
-export default function DashboardView({ inventory, orders, onOpenRestockModal, onNavigate }: DashboardViewProps) {
+export default function DashboardView({ onOpenRestockModal, onNavigate }: DashboardViewProps) {
+  const { inventory, orders, retailers, activityLogs } = useDashboard();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const triggerRefresh = () => {
@@ -55,37 +67,67 @@ export default function DashboardView({ inventory, orders, onOpenRestockModal, o
     setTimeout(() => setIsRefreshing(false), 850);
   };
 
-  // Compute dynamic metrics via useMemo
+  // 1. Real-Time Summary Cards derived directly from live Supabase tables
   const metrics = useMemo(() => {
-    const activeShipments = orders.filter(o => o.status === "In Transit").length.toString();
-    const stockAlertItems = inventory.filter(item => item.status !== "In Stock").length;
-    const pendingOrdersCount = orders.filter(o => o.status === "Pending" || o.status === "Processing").length.toString();
+    // Total Inventory Volume: sum of qty across all inventory items
+    const totalInventoryVolume = inventory.reduce((sum, item) => sum + item.qty, 0);
     
-    // Calculate fulfillment rate based on delivered vs total orders (excluding cancelled)
-    const activeOrders = orders.filter(o => o.status !== "Cancelled");
-    const deliveredCount = orders.filter(o => o.status === "Delivered").length;
-    const fulfillmentRate = activeOrders.length > 0 
-      ? ((deliveredCount / activeOrders.length) * 100).toFixed(1) + "%"
-      : "100%";
+    // Low Stock Items count: qty <= minRequired or status !== "In Stock"
+    const lowStockCount = inventory.filter(item => item.qty <= item.minRequired || item.status !== "In Stock").length;
+    
+    // Pending Shipments count: status === "Pending" || "Processing"
+    const pendingOrdersCount = orders.filter(o => o.status === "Pending" || o.status === "Processing").length;
+    
+    // Active Retailers count: status === "Active"
+    const activeRetailersCount = retailers.filter(r => r.status === "Active").length;
 
     return {
-      activeShipments,
-      stockAlertItems,
+      totalInventoryVolume,
+      lowStockCount,
       pendingOrdersCount,
-      fulfillmentRate
+      activeRetailersCount,
     };
-  }, [inventory, orders]);
+  }, [inventory, orders, retailers]);
+
+  // 2. Calculate Order Trends Chart Data from Real Order Dates & Total Values
+  const orderTrendsData = useMemo(() => {
+    const dateMap: Record<string, { date: string; revenue: number; ordersCount: number }> = {};
+    
+    orders.forEach(o => {
+      const dateKey = o.date || new Date().toISOString().split("T")[0];
+      if (!dateMap[dateKey]) {
+        dateMap[dateKey] = { date: dateKey, revenue: 0, ordersCount: 0 };
+      }
+      dateMap[dateKey].revenue += o.total;
+      dateMap[dateKey].ordersCount += 1;
+    });
+
+    const sortedData = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Format date for chart axis label (e.g. "Jul 24")
+    return sortedData.map(d => {
+      const parts = d.date.split("-");
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const formattedDate = parts.length === 3 
+        ? `${monthNames[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10)}`
+        : d.date;
+      return {
+        ...d,
+        displayDate: formattedDate,
+      };
+    });
+  }, [orders]);
 
   // Alert stock items listing
   const alertItems = useMemo(() => {
     return inventory
-      .filter(item => item.status !== "In Stock")
-      .slice(0, 4); // limit to 4 alerts on dashboard
+      .filter(item => item.qty <= item.minRequired || item.status !== "In Stock")
+      .slice(0, 4);
   }, [inventory]);
 
   // Recent shipments table listing
   const recentShipments = useMemo(() => {
-    return orders.slice(0, 5); // show last 5 orders
+    return orders.slice(0, 5);
   }, [orders]);
 
   return (
@@ -95,13 +137,13 @@ export default function DashboardView({ inventory, orders, onOpenRestockModal, o
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Supply Chain Command Center</h1>
           <p className="text-slate-400 mt-1.5 text-sm sm:text-base">
-            Real-time operations dashboard, logistics coordination, and predictive inventory analytics.
+            Real-time operations dashboard, live Supabase telemetry metrics, and sales trend analytics.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500 bg-slate-900 border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-2">
+          <span className="text-xs text-slate-400 bg-slate-900/80 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Live Updates
+            Supabase Live Sync
           </span>
           <button 
             onClick={triggerRefresh}
@@ -113,94 +155,165 @@ export default function DashboardView({ inventory, orders, onOpenRestockModal, o
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* 1. Real-Time Summary Cards Grid (Calculated directly from Supabase Tables) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Active Shipments Card */}
-        <div className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden shadow-lg shadow-indigo-600/5">
+        
+        {/* Total Inventory Volume */}
+        <div 
+          onClick={() => onNavigate("Inventory")}
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-indigo-600/5 border border-white/10"
+        >
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Active Shipments</span>
+            <span className="text-sm font-medium text-slate-400">Total Inventory Volume</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-black/30">
-              <Truck className="h-5 w-5 text-white" />
+              <Package className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.activeShipments}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.totalInventoryVolume.toLocaleString()}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-emerald-500/10 text-emerald-400">
               <TrendingUp className="h-3 w-3" />
-              +12.4%
+              Units
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">vs last week</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Across {inventory.length} active SKUs</div>
         </div>
 
-        {/* Stock Alert Items Card */}
+        {/* Low Stock Items Count (< min_required) */}
         <div 
           onClick={() => onNavigate("Inventory")}
-          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-rose-600/5"
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-rose-600/5 border border-white/10"
         >
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-rose-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Stock Alert Items</span>
+            <span className="text-sm font-medium text-slate-400">Low Stock Items</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg shadow-black/30">
               <Package className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.stockAlertItems}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.lowStockCount}</span>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 ${
-              metrics.stockAlertItems === 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+              metrics.lowStockCount === 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
             }`}>
-              {metrics.stockAlertItems === 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
-              {metrics.stockAlertItems === 0 ? "Optimal" : `+${metrics.stockAlertItems} items`}
+              {metrics.lowStockCount === 0 ? <CheckCircle className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+              {metrics.lowStockCount === 0 ? "Optimal" : `&lt; min_req`}
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">since yesterday</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Requires replenishment</div>
         </div>
 
-        {/* Orders Pending Card */}
+        {/* Pending Shipments Count */}
         <div 
           onClick={() => onNavigate("Orders")}
-          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-amber-600/5"
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-amber-600/5 border border-white/10"
         >
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Orders Pending</span>
+            <span className="text-sm font-medium text-slate-400">Pending Shipments</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-black/30">
               <ShoppingCart className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.pendingOrdersCount}</span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-emerald-500/10 text-emerald-400">
-              <TrendingUp className="h-3 w-3" />
-              +18.2%
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-amber-500/10 text-amber-400">
+              <Clock className="h-3 w-3" />
+              In Queue
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">vs last month</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Pending or processing status</div>
         </div>
 
-        {/* Fulfillment Rate Card */}
-        <div className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden shadow-lg shadow-emerald-600/5">
+        {/* Active Retailers Count */}
+        <div 
+          onClick={() => onNavigate("Retailers")}
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-emerald-600/5 border border-white/10"
+        >
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Fulfillment Rate</span>
+            <span className="text-sm font-medium text-slate-400">Active Retailers</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg shadow-black/30">
-              <CheckCircle className="h-5 w-5 text-white" />
+              <Store className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.fulfillmentRate}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.activeRetailersCount}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-emerald-500/10 text-emerald-400">
-              <TrendingUp className="h-3 w-3" />
-              +0.4%
+              <CheckCircle className="h-3 w-3" />
+              Verified
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">vs average</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Out of {retailers.length} total partner hubs</div>
+        </div>
+
+      </div>
+
+      {/* 2. Interactive Order Trends Chart (Calculated from Real Order Dates & Totals) */}
+      <div className="glass-panel rounded-2xl border border-white/10 p-6 shadow-xl bg-slate-950/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-indigo-400" />
+              Live Sales & Order Revenue Trends
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Real order volumes and dollar values queried directly from Supabase <code className="text-indigo-300">orders</code> table
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 bg-slate-900 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
+              {orders.length} Total Orders Logged
+            </span>
+          </div>
+        </div>
+
+        <div className="w-full h-[280px]">
+          {orderTrendsData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={orderTrendsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                <XAxis dataKey="displayDate" stroke="#94a3b8" tick={{ fontSize: 12 }} />
+                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(val) => `$${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#090d16",
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                    borderRadius: "12px",
+                    color: "#fff",
+                    fontSize: "12px"
+                  }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any) => [`$${Number(value ?? 0).toLocaleString()}`, "Order Volume"]}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#6366f1" 
+                  strokeWidth={3} 
+                  fillOpacity={1} 
+                  fill="url(#colorRevenue)" 
+                  name="Sales Revenue ($)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-500 text-xs">
+              No sales orders recorded yet.
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Main Content Grid: Map & Stock Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Animated Map Widget */}
         <div className="lg:col-span-2 glass-panel rounded-2xl border border-white/10 p-6 flex flex-col h-[400px]">
@@ -331,7 +444,7 @@ export default function DashboardView({ inventory, orders, onOpenRestockModal, o
         </div>
       </div>
 
-      {/* Bottom Grid: Recent Shipments & Quick Operations */}
+      {/* Bottom Grid: Recent Shipments & Live Recent Activity Log */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Shipments Table */}
         <div className="lg:col-span-2 glass-panel rounded-2xl border border-white/10 p-6 flex flex-col">
@@ -393,79 +506,81 @@ export default function DashboardView({ inventory, orders, onOpenRestockModal, o
           </div>
         </div>
 
-        {/* Quick Operations Panel */}
+        {/* 3. Live Recent Activity Log Feed */}
         <div className="glass-panel rounded-2xl border border-white/10 p-6 flex flex-col justify-between">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-2">
-              <RefreshCw className="h-5 w-5 text-indigo-400" />
-              Quick Operations
-            </h2>
-            <p className="text-xs text-slate-400">Trigger actions across the supply chain network</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-indigo-400" />
+                  Recent Activity Log
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">Real-time audit log of inventory & freight events</p>
+              </div>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+            </div>
 
-            <div className="mt-6 space-y-3.5">
-              {/* Log Restock Action */}
-              <button
-                onClick={onOpenRestockModal}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all duration-300 group text-left focus:outline-none"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-500/10 border border-indigo-500/25 rounded-lg text-indigo-400">
-                    <Package className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">Log Restock Order</p>
-                    <p className="text-[10px] text-slate-400">Initiate supply replenishment</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-              </button>
+            <div className="mt-4 space-y-3 max-h-[290px] overflow-y-auto pr-1">
+              {activityLogs.length > 0 ? (
+                activityLogs.map((log) => {
+                  const getLogStyle = (type: string) => {
+                    switch (type) {
+                      case "inventory":
+                        return { icon: Package, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
+                      case "order":
+                        return { icon: ShoppingCart, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" };
+                      case "retailer":
+                        return { icon: Store, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
+                      default:
+                        return { icon: Activity, color: "text-slate-400 bg-slate-500/10 border-slate-500/20" };
+                    }
+                  };
 
-              <button
-                onClick={() => onNavigate("Route Tracking")}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all duration-300 group text-left focus:outline-none"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-pink-500/10 border border-pink-500/25 rounded-lg text-pink-400">
-                    <Truck className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">Dispatch Logistics Fleet</p>
-                    <p className="text-[10px] text-slate-400">Assign drivers & define routes</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-              </button>
+                  const logConfig = getLogStyle(log.type);
+                  const LogIcon = logConfig.icon;
 
-              <button
-                onClick={() => onNavigate("Retailers")}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all duration-300 group text-left focus:outline-none"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-500/10 border border-amber-500/25 rounded-lg text-amber-400">
-                    <Store className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">Audit Partner Network</p>
-                    <p className="text-[10px] text-slate-400">Review retailer agreements</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-              </button>
+                  return (
+                    <div 
+                      key={log.id} 
+                      className="p-3 rounded-xl bg-slate-900/40 border border-white/5 hover:border-white/10 transition-all flex items-start gap-3"
+                    >
+                      <div className={`p-2 rounded-lg border flex-shrink-0 mt-0.5 ${logConfig.color}`}>
+                        <LogIcon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <h3 className="text-xs font-bold text-white truncate">{log.title}</h3>
+                          <span className="text-[9px] font-semibold text-slate-500 flex items-center gap-1 flex-shrink-0">
+                            <Clock className="h-2.5 w-2.5" />
+                            {log.timestamp}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{log.description}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-slate-500 text-center py-8">No recent activity logged.</p>
+              )}
             </div>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400 bg-slate-950/20 p-3 rounded-xl border border-white/5">
+          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-400 bg-slate-950/20 p-2.5 rounded-xl border border-white/5">
             <div>
-              <span className="font-semibold text-white block">System Status: Optimal</span>
-              <span className="text-[10px] text-indigo-400 font-medium">All APIs & Database online</span>
+              <span className="font-semibold text-white block">Supabase Realtime Feed</span>
+              <span className="text-[10px] text-indigo-400 font-medium">Listening to postgres_changes</span>
             </div>
-            <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 animate-pulse"></span>
-            </span>
+            <button
+              onClick={onOpenRestockModal}
+              className="text-[10px] font-bold text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2.5 py-1 rounded-lg border border-indigo-500/30 transition-all"
+            >
+              + Quick Restock
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
