@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import Modal from "./Modal";
@@ -15,6 +16,7 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { 
     searchQuery, 
@@ -34,6 +36,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     toasts,
     dismissToast,
   } = useDashboard();
+
+  const isAuthPage = pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
+
+  if (isAuthPage) {
+    return <div className="min-h-screen bg-[#0b0f19]">{children}</div>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent">

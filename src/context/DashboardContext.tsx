@@ -327,6 +327,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setUnreadNotificationsCount(prev => prev + 1);
   }, []);
 
+  // Determine active tenantId from Clerk metadata or localStorage
+  const userTenantId = (user?.publicMetadata?.tenantId as string) || (user?.unsafeMetadata?.tenantId as string) || null;
+  const activeTenantId = isSuperAdmin ? null : userTenantId;
+
   // Load live data from Supabase
   const loadSupabaseData = useCallback(async (isInitial = false) => {
     if (!isSupabaseConfigured()) {
@@ -336,9 +340,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const fetchPromise = Promise.all([
-        fetchSupabaseInventory(),
-        fetchSupabaseOrders(),
-        fetchSupabaseRetailers(),
+        fetchSupabaseInventory(activeTenantId || undefined),
+        fetchSupabaseOrders(activeTenantId || undefined),
+        fetchSupabaseRetailers(activeTenantId || undefined),
         fetchSupabaseClients(),
       ]);
 
@@ -352,18 +356,30 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       const [remoteInv, remoteOrd, remoteRet, remoteCli] = results;
 
-      if (remoteInv && remoteInv.length > 0) {
-        setInventory(remoteInv);
-        setIsSupabaseLive(true);
+      // Clean Workspace Enforcement: If an active tenant is set, populate strictly isolated records (or [] if 0 records exist)
+      if (activeTenantId) {
+        setInventory(remoteInv || []);
+        setOrders(remoteOrd || []);
+        setRetailers(remoteRet || []);
+        if (remoteInv !== null || remoteOrd !== null || remoteRet !== null) {
+          setIsSupabaseLive(true);
+        }
+      } else {
+        // Global / Super Admin fallback
+        if (remoteInv && remoteInv.length > 0) {
+          setInventory(remoteInv);
+          setIsSupabaseLive(true);
+        }
+        if (remoteOrd && remoteOrd.length > 0) {
+          setOrders(remoteOrd);
+          setIsSupabaseLive(true);
+        }
+        if (remoteRet && remoteRet.length > 0) {
+          setRetailers(remoteRet);
+          setIsSupabaseLive(true);
+        }
       }
-      if (remoteOrd && remoteOrd.length > 0) {
-        setOrders(remoteOrd);
-        setIsSupabaseLive(true);
-      }
-      if (remoteRet && remoteRet.length > 0) {
-        setRetailers(remoteRet);
-        setIsSupabaseLive(true);
-      }
+
       if (remoteCli && remoteCli.length > 0) {
         setClients(remoteCli);
         setIsSupabaseLive(true);
@@ -373,7 +389,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (isInitial) setIsLoading(false);
     }
-  }, []);
+  }, [activeTenantId]);
 
   const addClientBusiness = useCallback(async (clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
     const planMrrMap: Record<string, number> = {
@@ -445,7 +461,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         supabase.removeChannel(channel);
       };
     }
-  }, [loadSupabaseData]);
+  }, [loadSupabaseData, user?.id, userRole, activeTenantId]);
 
   // Seed Supabase with initial data
   const seedDatabase = useCallback(async () => {
@@ -472,9 +488,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     addLog(`SKU Added: ${itemWithStatus.sku}`, `Added "${itemWithStatus.name}" with stock ${itemWithStatus.qty}`, "inventory");
     addToast("success", "SKU Created", `${itemWithStatus.name} (${itemWithStatus.sku}) cataloged`);
 
-    // Persist to Supabase
-    insertSupabaseInventoryItem(itemWithStatus);
-  }, [addLog, addToast]);
+    // Persist to Supabase with tenant isolation
+    insertSupabaseInventoryItem(itemWithStatus, activeTenantId || undefined);
+  }, [addLog, addToast, activeTenantId]);
 
   const restockSku = useCallback((sku: string) => {
     setInventory(prev =>
@@ -485,7 +501,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           if (newQty === 0) status = "Out of Stock";
           else if (newQty <= item.minRequired) status = "Low Stock";
 
-          updateSupabaseInventoryQty(sku, newQty, status);
+          updateSupabaseInventoryQty(sku, newQty, status, activeTenantId || undefined);
           addLog(`Restocked SKU ${sku}`, `Replenished stock by +50 units (New Qty: ${newQty})`, "inventory");
           addToast("success", "Stock Replenished", `${item.name} (+50 units). New Qty: ${newQty}`);
           return { ...item, qty: newQty, status };
@@ -493,7 +509,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return item;
       })
     );
-  }, [addLog, addToast]);
+  }, [addLog, addToast, activeTenantId]);
 
   const deleteSku = useCallback((sku: string) => {
     setInventory(prev => {
@@ -502,8 +518,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       addToast("error", "SKU Removed", `${target?.name || sku} deleted from catalog`);
       return prev.filter(item => item.sku !== sku);
     });
-    deleteSupabaseInventoryItem(sku);
-  }, [addLog, addToast]);
+    deleteSupabaseInventoryItem(sku, activeTenantId || undefined);
+  }, [addLog, addToast, activeTenantId]);
 
   const updateOrderStatus = useCallback((orderId: string, status: Order["status"], carrier?: string, trackingNum?: string, eta?: string) => {
     setOrders(prev =>
@@ -519,7 +535,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           const updatedCarrier = carrier || order.carrier;
           const updatedTrackingNum = trackingNum || order.trackingNum;
 
-          updateSupabaseOrderStatus(orderId, status, updatedEta);
+          updateSupabaseOrderStatus(orderId, status, updatedEta, activeTenantId || undefined);
           addLog(`Order ${orderId} Updated`, `Status: ${status} | Carrier: ${updatedCarrier}`, "order");
           addToast("info", `Order ${orderId} Updated`, `Status changed to ${status}`);
           return { ...order, status, carrier: updatedCarrier, trackingNum: updatedTrackingNum, eta: updatedEta };
@@ -527,7 +543,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return order;
       })
     );
-  }, [addLog, addToast]);
+  }, [addLog, addToast, activeTenantId]);
 
   const createOrder = useCallback((retailerName: string, itemsList: { sku: string; qty: number }[]) => {
     const retailer = retailers.find(r => r.name === retailerName);
@@ -570,7 +586,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           if (newQty === 0) newStatus = "Out of Stock";
           else if (newQty <= item.minRequired) newStatus = "Low Stock";
 
-          updateSupabaseInventoryQty(item.sku, newQty, newStatus);
+          updateSupabaseInventoryQty(item.sku, newQty, newStatus, activeTenantId || undefined);
           return { ...item, qty: newQty, status: newStatus };
         }
         return item;
@@ -580,15 +596,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setOrders(prev => [newOrder, ...prev]);
     addLog(`Sales Order Created (${newOrderId})`, `Assigned to ${retailerName} for $${totalPrice.toFixed(2)}`, "order");
     addToast("success", "Sales Order Created", `${newOrderId} for ${retailerName} ($${totalPrice.toFixed(2)})`);
-    insertSupabaseOrder(newOrder);
-  }, [retailers, inventory, orders.length, addLog, addToast]);
+    insertSupabaseOrder(newOrder, activeTenantId || undefined);
+  }, [retailers, inventory, orders.length, addLog, addToast, activeTenantId]);
 
   const deleteOrder = useCallback((id: string) => {
     setOrders(prev => prev.filter(o => o.id !== id));
     addLog(`Deleted Order ${id}`, `Removed sales order from pipeline`, "order");
     addToast("error", "Order Removed", `${id} deleted from pipeline`);
-    deleteSupabaseOrder(id);
-  }, [addLog, addToast]);
+    deleteSupabaseOrder(id, activeTenantId || undefined);
+  }, [addLog, addToast, activeTenantId]);
 
   const addRetailer = useCallback((newRetailer: Partial<Retailer>) => {
     const retailerItem: Retailer = {
@@ -608,15 +624,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setRetailers(prev => [retailerItem, ...prev]);
     addLog(`Retailer Onboarded: ${retailerItem.name}`, `Added partner account in ${retailerItem.location}`, "retailer");
     addToast("success", "Partner Onboarded", `${retailerItem.name} (${retailerItem.location})`);
-    insertSupabaseRetailer(retailerItem);
-  }, [retailers.length, addLog, addToast]);
+    insertSupabaseRetailer(retailerItem, activeTenantId || undefined);
+  }, [retailers.length, addLog, addToast, activeTenantId]);
 
   const updateRetailer = useCallback((id: string, updates: Partial<Retailer>) => {
     setRetailers(prev =>
       prev.map(r => {
         if (r.id === id) {
           const updated = { ...r, ...updates };
-          updateSupabaseRetailer(id, updates);
+          updateSupabaseRetailer(id, updates, activeTenantId || undefined);
           addLog(`Updated Partner ${r.name}`, `Status: ${updated.status}, Grade: ${updated.grade}`, "retailer");
           addToast("info", "Partner Updated", `${r.name} profile updated`);
           return updated;
@@ -624,7 +640,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return r;
       })
     );
-  }, [addLog, addToast]);
+  }, [addLog, addToast, activeTenantId]);
 
   const deleteRetailer = useCallback((id: string) => {
     setRetailers(prev => {
@@ -633,8 +649,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       addToast("error", "Partner Removed", `${target?.name || id} removed from network`);
       return prev.filter(r => r.id !== id);
     });
-    deleteSupabaseRetailer(id);
-  }, [addLog, addToast]);
+    deleteSupabaseRetailer(id, activeTenantId || undefined);
+  }, [addLog, addToast, activeTenantId]);
 
   const contextValue = useMemo(() => {
     return {

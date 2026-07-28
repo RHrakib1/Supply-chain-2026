@@ -1,6 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/public(.*)',
+]);
+
 const isRestrictedAdminRoute = createRouteMatcher([
   '/',
   '/inventory',
@@ -19,7 +25,13 @@ const isSuperAdminRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const { sessionClaims } = await auth();
+  const { userId, sessionClaims } = await auth();
+
+  // Unauthenticated guard: redirect to /sign-in if attempting to access protected routes
+  if (!userId && !isPublicRoute(req)) {
+    const signInUrl = new URL("/sign-in", req.url);
+    return NextResponse.redirect(signInUrl);
+  }
 
   // Extract user role from sessionClaims metadata if present
   const role =

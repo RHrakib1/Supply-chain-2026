@@ -20,6 +20,7 @@ interface SupabaseInventoryRow {
   unit_price?: number;
   unitPrice?: number;
   status?: string;
+  tenant_id?: string;
 }
 
 interface SupabaseOrderRow {
@@ -36,6 +37,7 @@ interface SupabaseOrderRow {
   driver_name?: string;
   carrier?: string;
   eta?: string;
+  tenant_id?: string;
 }
 
 interface SupabaseRetailerRow {
@@ -51,18 +53,25 @@ interface SupabaseRetailerRow {
   partnership_status?: string;
   status?: string;
   grade?: "A+" | "A" | "B" | "C";
+  tenant_id?: string;
 }
 
 // --- INVENTORY ---
-export async function fetchSupabaseInventory(): Promise<InventoryItem[] | null> {
+export async function fetchSupabaseInventory(tenantId?: string): Promise<InventoryItem[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("inventory")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error || !data || data.length === 0) {
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
       if (error) console.warn("Supabase fetch inventory notice:", error.message);
       return null;
     }
@@ -83,40 +92,51 @@ export async function fetchSupabaseInventory(): Promise<InventoryItem[] | null> 
   }
 }
 
-export async function insertSupabaseInventoryItem(item: InventoryItem) {
+export async function insertSupabaseInventoryItem(item: InventoryItem, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from("inventory").insert([
-    {
-      sku: item.sku,
-      product_name: item.name,
-      category: item.category,
-      stock_level: item.qty,
-      min_required: item.minRequired,
-      status: item.status,
-    },
-  ]);
+  const payload: Record<string, unknown> = {
+    sku: item.sku,
+    product_name: item.name,
+    category: item.category,
+    stock_level: item.qty,
+    min_required: item.minRequired,
+    status: item.status,
+  };
+  if (tenantId) payload.tenant_id = tenantId;
+
+  const { error } = await supabase.from("inventory").insert([payload]);
   if (error) console.error("Error inserting inventory item:", error.message);
 }
 
-export async function updateSupabaseInventoryQty(sku: string, newQty: number, status: string) {
+export async function updateSupabaseInventoryQty(sku: string, newQty: number, status: string, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase
+  let query = supabase
     .from("inventory")
     .update({ stock_level: newQty, status })
     .eq("sku", sku);
+  if (tenantId) {
+    query = query.eq("tenant_id", tenantId);
+  }
+  const { error } = await query;
   if (error) console.error("Error updating inventory qty:", error.message);
 }
 
 // --- ORDERS ---
-export async function fetchSupabaseOrders(): Promise<Order[] | null> {
+export async function fetchSupabaseOrders(tenantId?: string): Promise<Order[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("orders")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error || !data || data.length === 0) {
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
       if (error) console.warn("Supabase fetch orders notice:", error.message);
       return null;
     }
@@ -140,41 +160,44 @@ export async function fetchSupabaseOrders(): Promise<Order[] | null> {
   }
 }
 
-export async function insertSupabaseOrder(order: Order) {
+export async function insertSupabaseOrder(order: Order, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from("orders").insert([
-    {
-      shipment_id: order.id,
-      destination: order.location,
-      driver_name: order.carrier,
-      status: order.status,
-      eta: order.eta,
-    },
-  ]);
+  const payload: Record<string, unknown> = {
+    shipment_id: order.id,
+    destination: order.location,
+    driver_name: order.carrier,
+    status: order.status,
+    eta: order.eta,
+  };
+  if (tenantId) payload.tenant_id = tenantId;
+
+  const { error } = await supabase.from("orders").insert([payload]);
   if (error) console.error("Error inserting order:", error.message);
 }
 
-export async function updateSupabaseOrderStatus(orderId: string, status: string, eta: string) {
+export async function updateSupabaseOrderStatus(orderId: string, status: string, eta: string, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
   try {
-    // 1. Try updating by shipment_id first
-    const { error: shipmentErr, data: shipmentData } = await supabase
+    let query1 = supabase
       .from("orders")
       .update({ status, eta })
-      .eq("shipment_id", orderId)
-      .select();
+      .eq("shipment_id", orderId);
+    if (tenantId) query1 = query1.eq("tenant_id", tenantId);
+
+    const { error: shipmentErr, data: shipmentData } = await query1.select();
 
     if (shipmentErr) {
       console.warn("Notice updating order status by shipment_id:", shipmentErr.message);
     }
 
-    // 2. If no rows updated by shipment_id and orderId is a UUID, update by id
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
     if ((!shipmentData || shipmentData.length === 0) && isUuid) {
-      const { error: idErr } = await supabase
+      let query2 = supabase
         .from("orders")
         .update({ status, eta })
         .eq("id", orderId);
+      if (tenantId) query2 = query2.eq("tenant_id", tenantId);
+      const { error: idErr } = await query2;
       if (idErr) console.error("Error updating order status by id:", idErr.message);
     }
   } catch (err) {
@@ -183,14 +206,20 @@ export async function updateSupabaseOrderStatus(orderId: string, status: string,
 }
 
 // --- RETAILERS ---
-export async function fetchSupabaseRetailers(): Promise<Retailer[] | null> {
+export async function fetchSupabaseRetailers(tenantId?: string): Promise<Retailer[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("retailers")
       .select("*");
 
-    if (error || !data || data.length === 0) {
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
       if (error) console.warn("Supabase fetch retailers notice:", error.message);
       return null;
     }
@@ -214,20 +243,21 @@ export async function fetchSupabaseRetailers(): Promise<Retailer[] | null> {
   }
 }
 
-export async function insertSupabaseRetailer(retailer: Partial<Retailer>) {
+export async function insertSupabaseRetailer(retailer: Partial<Retailer>, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from("retailers").insert([
-    {
-      name: retailer.name,
-      location: retailer.location,
-      contact: retailer.contact,
-      partnership_status: retailer.status || "Active",
-    },
-  ]);
+  const payload: Record<string, unknown> = {
+    name: retailer.name,
+    location: retailer.location,
+    contact: retailer.contact,
+    partnership_status: retailer.status || "Active",
+  };
+  if (tenantId) payload.tenant_id = tenantId;
+
+  const { error } = await supabase.from("retailers").insert([payload]);
   if (error) console.error("Error inserting retailer:", error.message);
 }
 
-export async function updateSupabaseRetailer(id: string, updates: Partial<Retailer>) {
+export async function updateSupabaseRetailer(id: string, updates: Partial<Retailer>, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
   const payload: Record<string, unknown> = {};
   if (updates.name !== undefined) payload.name = updates.name;
@@ -235,31 +265,42 @@ export async function updateSupabaseRetailer(id: string, updates: Partial<Retail
   if (updates.contact !== undefined) payload.contact = updates.contact;
   if (updates.status !== undefined) payload.partnership_status = updates.status;
 
-  const { error } = await supabase
+  let query = supabase
     .from("retailers")
     .update(payload)
     .eq("id", id);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+
+  const { error } = await query;
   if (error) console.error("Error updating retailer:", error.message);
 }
 
 // --- DELETE OPERATIONS (ADMIN ONLY) ---
-export async function deleteSupabaseInventoryItem(sku: string) {
+export async function deleteSupabaseInventoryItem(sku: string, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from("inventory").delete().eq("sku", sku);
+  let query = supabase.from("inventory").delete().eq("sku", sku);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { error } = await query;
   if (error) console.error("Error deleting inventory item:", error.message);
 }
 
-export async function deleteSupabaseOrder(orderId: string) {
+export async function deleteSupabaseOrder(orderId: string, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error: err1 } = await supabase.from("orders").delete().eq("shipment_id", orderId);
+  let q1 = supabase.from("orders").delete().eq("shipment_id", orderId);
+  if (tenantId) q1 = q1.eq("tenant_id", tenantId);
+  const { error: err1 } = await q1;
   if (err1) {
-    await supabase.from("orders").delete().eq("id", orderId);
+    let q2 = supabase.from("orders").delete().eq("id", orderId);
+    if (tenantId) q2 = q2.eq("tenant_id", tenantId);
+    await q2;
   }
 }
 
-export async function deleteSupabaseRetailer(id: string) {
+export async function deleteSupabaseRetailer(id: string, tenantId?: string) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from("retailers").delete().eq("id", id);
+  let query = supabase.from("retailers").delete().eq("id", id);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { error } = await query;
   if (error) console.error("Error deleting retailer:", error.message);
 }
 

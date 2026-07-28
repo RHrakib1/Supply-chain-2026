@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Crown,
@@ -104,6 +104,29 @@ export default function SuperAdminPage() {
 
     try {
       setIsSubmitting(true);
+      const generatedTenantId = `CLI-${Date.now().toString().slice(-4)}`;
+
+      // 1. Post to tenant onboarding API endpoint
+      const res = await fetch("/api/onboard-tenant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          ownerName: ownerName.trim(),
+          ownerEmail: ownerEmail.trim(),
+          plan,
+          maxUsers: Number(maxUsers),
+          tenantId: generatedTenantId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Onboarding API call failed");
+      }
+
+      const data = await res.json();
+
+      // 2. Also register client business in local state
       await addClientBusiness({
         name: name.trim(),
         ownerName: ownerName.trim(),
@@ -116,7 +139,7 @@ export default function SuperAdminPage() {
       // Re-fetch live updated tenant list from Supabase
       await loadSupabaseData(false);
 
-      setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges.`);
+      setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges & Tenant ID: ${data.tenantId || generatedTenantId}.`);
       setIsModalOpen(false);
 
       // Reset form
