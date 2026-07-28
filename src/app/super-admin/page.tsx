@@ -24,7 +24,7 @@ import { useDashboard } from "@/context/DashboardContext";
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const { isSuperAdmin, clients, addClientBusiness, toggleClientStatus, deleteClientBusiness } = useDashboard();
+  const { isSuperAdmin, clients, addClientBusiness, toggleClientStatus, deleteClientBusiness, addToast } = useDashboard();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -80,7 +80,7 @@ export default function SuperAdminPage() {
   const handleSubmitOnboard = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !ownerEmail.trim() || !ownerName.trim()) {
-      alert("Please fill in all required fields.");
+      addToast("warning", "Missing Fields", "Please fill in all required fields.");
       return;
     }
 

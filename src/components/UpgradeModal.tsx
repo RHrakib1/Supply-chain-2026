@@ -17,7 +17,7 @@ interface UpgradeModalProps {
 }
 
 export default function UpgradeModal({ isOpen, onClose, reason }: UpgradeModalProps) {
-  const { clients, inventory } = useDashboard();
+  const { clients, inventory, addToast } = useDashboard();
   const [requestedPlan, setRequestedPlan] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -34,10 +34,10 @@ export default function UpgradeModal({ isOpen, onClose, reason }: UpgradeModalPr
   const handleRequestUpgrade = (planName: string) => {
     setRequestedPlan(planName);
     setTimeout(() => {
-      alert(`Upgrade request for "${planName}" plan has been dispatched to Super Admin!`);
+      addToast("success", "Upgrade Request Dispatched", `Request for "${planName}" tier sent to Super Admin`);
       onClose();
       setRequestedPlan(null);
-    }, 800);
+    }, 400);
   };
 
   return (

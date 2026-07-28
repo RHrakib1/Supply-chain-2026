@@ -10,9 +10,11 @@ import {
   User, 
   ExternalLink,
   Plus,
-  Trash2
+  Trash2,
+  Send
 } from "lucide-react";
 import { useDashboard } from "@/context/DashboardContext";
+import CourierDispatchModal from "./CourierDispatchModal";
 
 interface Order {
   id: string;
@@ -31,14 +33,15 @@ interface Order {
 interface OrdersViewProps {
   orders: Order[];
   searchQuery: string;
-  onUpdateOrderStatus: (id: string, status: Order["status"]) => void;
+  onUpdateOrderStatus: (id: string, status: Order["status"], carrier?: string, trackingNum?: string, eta?: string) => void;
   onOpenOrderModal: () => void;
 }
 
 export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, onOpenOrderModal }: OrdersViewProps) {
-  const { isAdmin, deleteOrder } = useDashboard();
+  const { isAdmin, deleteOrder, addToast } = useDashboard();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [isCourierModalOpen, setIsCourierModalOpen] = useState(false);
 
   // Select first item as default initially
   const defaultSelectedId = orders.length > 0 ? orders[0].id : null;
@@ -74,7 +77,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
       case "Cancelled":
         return "bg-rose-500/10 border-rose-500/20 text-rose-400";
       default:
-        return "bg-slate-500/10 border-slate-500/20 text-slate-405";
+        return "bg-slate-500/10 border-slate-500/20 text-slate-400";
     }
   };
 
@@ -89,6 +92,15 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
     return "bg-slate-900 border-white/10 text-slate-500";
   };
 
+  const handleCourierDispatchSuccess = (
+    orderId: string,
+    carrier: string,
+    trackingNum: string,
+    eta: string
+  ) => {
+    onUpdateOrderStatus(orderId, "In Transit", carrier, trackingNum, eta);
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -96,7 +108,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Order Orchestration</h1>
           <p className="text-slate-400 mt-1.5 text-sm sm:text-base">
-            Track customer orders, monitor carriers, and oversee supply chain transit states.
+            Track customer orders, monitor carriers, and dispatch via Steadfast, Pathao & RedX API Gateways.
           </p>
         </div>
         <button
@@ -115,12 +127,12 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
         <div className="lg:col-span-2 space-y-4">
           <div className="glass-panel rounded-2xl p-5 border border-white/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
             {/* Real-time search status */}
-            <div className="flex items-center gap-2 text-sm text-slate-450">
+            <div className="flex items-center gap-2 text-sm text-slate-400">
               <Search className="h-4 w-4 text-slate-500" />
               {searchQuery ? (
                 <span>Filtering: &quot;<strong className="text-indigo-400">{searchQuery}</strong>&quot;</span>
               ) : (
-                <span className="text-xs text-slate-500">Navbar search connects here</span>
+                <span className="text-xs text-slate-500">Search by Order ID or Retailer</span>
               )}
             </div>
 
@@ -209,9 +221,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                             {isAdmin && (
                               <button
                                 onClick={() => {
-                                  if (confirm(`Are you sure you want to delete order ${o.id}?`)) {
-                                    deleteOrder(o.id);
-                                  }
+                                  deleteOrder(o.id);
                                 }}
                                 title="Delete Order (Admin Only)"
                                 className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
@@ -238,7 +248,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
         </div>
 
 
-        {/* Right Side: Stepper & Tracking Details */}
+        {/* Right Side: Stepper & Courier Dispatch Card */}
         {activeOrder ? (
           <div className="glass-panel rounded-2xl border border-white/10 p-6 h-fit space-y-6">
             <div className="border-b border-white/10 pb-4">
@@ -274,7 +284,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-white">Order Confirmed</h4>
-                    <p className="text-xs text-slate-400">Order successfully logged and allocated in Hub.</p>
+                    <p className="text-xs text-slate-400">Order logged and allocated in Central Hub.</p>
                     <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> {activeOrder.date}
                     </p>
@@ -322,15 +332,25 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
               </div>
             </div>
 
-            {/* Carrier Info */}
-            <div className="pt-4 border-t border-white/10 space-y-3 bg-slate-950/20 p-4 rounded-xl border border-white/5">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Truck className="h-4 w-4 text-indigo-400" />
-                Transit Partner Details
-              </h4>
+            {/* Carrier Details & 1-Click Courier Dispatch */}
+            <div className="pt-4 border-t border-white/10 space-y-4 bg-slate-950/20 p-4 rounded-xl border border-white/5">
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Truck className="h-4 w-4 text-indigo-400" />
+                  Transit Partner Details
+                </h4>
+                <button
+                  onClick={() => setIsCourierModalOpen(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-bold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                >
+                  <Send className="h-3 w-3" />
+                  Courier API Dispatch
+                </button>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Carrier</span>
+                  <span className="text-slate-500 block">Carrier Gateway</span>
                   <span className="font-semibold text-slate-200">{activeOrder.carrier}</span>
                 </div>
                 <div>
@@ -350,6 +370,15 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
         )}
 
       </div>
+
+      {/* Courier Integration Modal */}
+      <CourierDispatchModal
+        isOpen={isCourierModalOpen}
+        onClose={() => setIsCourierModalOpen(false)}
+        order={activeOrder}
+        onDispatchSuccess={handleCourierDispatchSuccess}
+        addToast={addToast}
+      />
     </div>
   );
 }

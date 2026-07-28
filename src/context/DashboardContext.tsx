@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useUser } from "@clerk/nextjs";
+import { ToastMessage, ToastType } from "@/components/Toast";
 import {
   fetchSupabaseInventory,
   fetchSupabaseOrders,
@@ -133,7 +134,7 @@ interface DashboardContextType {
   addSku: (item: Omit<InventoryItem, "status">) => void;
   restockSku: (sku: string) => void;
   deleteSku: (sku: string) => void;
-  updateOrderStatus: (id: string, status: Order["status"]) => void;
+  updateOrderStatus: (id: string, status: Order["status"], carrier?: string, trackingNum?: string, eta?: string) => void;
   createOrder: (retailerName: string, itemsList: { sku: string; qty: number }[]) => void;
   deleteOrder: (id: string) => void;
   addRetailer: (retailer: Partial<Retailer>) => void;
@@ -142,6 +143,9 @@ interface DashboardContextType {
   addClientBusiness: (client: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => void;
   toggleClientStatus: (id: string) => void;
   deleteClientBusiness: (id: string) => void;
+  toasts: ToastMessage[];
+  addToast: (type: ToastType, title: string, message?: string) => void;
+  dismissToast: (id: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -234,17 +238,29 @@ const initialMockClients: ClientBusiness[] = [
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
-  const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(null);
 
-  // Load initial role from localStorage if present
-  useEffect(() => {
+  // Toast State Management
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = useCallback((type: ToastType, title: string, message?: string) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    setToasts(prev => [...prev.slice(-4), { id, type, title, message }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Synchronously initialize localRoleOverride from localStorage to prevent role glitch on refresh
+  const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("userRole") as UserRole | null;
       if (saved && (saved === "admin" || saved === "user" || saved === "super_admin")) {
-        setLocalRoleOverride(saved);
+        return saved;
       }
     }
-  }, []);
+    return null;
+  });
 
   // Determine user role: check local override first, then Clerk user metadata, default to 'admin'
   const clerkRole = (user?.publicMetadata?.role as UserRole) || (user?.unsafeMetadata?.role as UserRole) || "admin";
@@ -252,11 +268,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   const isSuperAdmin = userRole === "super_admin";
 
-  const setUserRole = async (role: UserRole) => {
+  const setUserRole = useCallback(async (role: UserRole) => {
     setLocalRoleOverride(role);
     if (typeof window !== "undefined") {
       localStorage.setItem("userRole", role);
     }
+    addToast("info", "Role Context Switch", `Switched active portal view to ${role.toUpperCase().replace("_", " ")}`);
     if (user) {
       try {
         await user.update({
@@ -269,7 +286,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         console.warn("Notice updating Clerk user metadata:", err);
       }
     }
-  };
+  }, [user, addToast]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -292,11 +309,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setIsUpgradeModalOpen(true);
   };
 
-  const markNotificationsAsRead = () => {
+  const markNotificationsAsRead = useCallback(() => {
     setUnreadNotificationsCount(0);
-  };
+    addToast("info", "Notifications Cleared", "All activity alerts marked as read");
+  }, [addToast]);
 
-  const addLog = (title: string, description: string, type: ActivityLog["type"]) => {
+  const addLog = useCallback((title: string, description: string, type: ActivityLog["type"]) => {
     const newLog: ActivityLog = {
       id: `log-${Date.now()}`,
       title,
@@ -306,9 +324,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     };
     setActivityLogs(prev => [newLog, ...prev.slice(0, 15)]);
     setUnreadNotificationsCount(prev => prev + 1);
-  };
+  }, []);
 
-  const addClientBusiness = (clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
+  const addClientBusiness = useCallback((clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
     const planMrrMap: Record<string, number> = {
       Starter: 299,
       Professional: 799,
@@ -325,31 +343,34 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     setClients(prev => [newClient, ...prev]);
     addLog(`Client Onboarded: ${newClient.name}`, `Provisioned ${newClient.plan} account for ${newClient.ownerEmail}`, "retailer");
+    addToast("success", "Client Account Provisioned", `${newClient.name} successfully added to SaaS engine`);
     insertSupabaseClient(newClient);
-  };
+  }, [clients.length, addLog, addToast]);
 
-  const toggleClientStatus = (id: string) => {
+  const toggleClientStatus = useCallback((id: string) => {
     setClients(prev =>
       prev.map(client => {
         if (client.id === id) {
           const nextStatus: ClientBusiness["status"] = client.status === "Active" ? "Suspended" : "Active";
           addLog(`Client Access ${nextStatus}`, `${client.name} status updated to ${nextStatus}`, "retailer");
+          addToast(nextStatus === "Active" ? "success" : "warning", `Client ${nextStatus}`, `${client.name} access is now ${nextStatus}`);
           updateSupabaseClientStatus(id, nextStatus);
           return { ...client, status: nextStatus };
         }
         return client;
       })
     );
-  };
+  }, [addLog, addToast]);
 
-  const deleteClientBusiness = (id: string) => {
+  const deleteClientBusiness = useCallback((id: string) => {
     const target = clients.find(c => c.id === id);
     if (target) {
       setClients(prev => prev.filter(c => c.id !== id));
       addLog(`Client Account Deleted`, `Removed ${target.name} from SaaS platform`, "retailer");
+      addToast("error", "Client Removed", `${target.name} account deleted`);
       deleteSupabaseClient(id);
     }
-  };
+  }, [clients, addLog, addToast]);
 
   const [fleet] = useState<FleetVehicle[]>([
     { id: "TX-89", driver: "Albert Carter", phone: "+1 (555) 019-8822", route: "Alpha", origin: "Central Hub", destination: "Walmart East Hub", status: "Delayed", progress: 60, speed: 15, temp: 34, cargo: "Steel Pins & Assemblies", eta: "14:30 (Delayed 45 mins)", coordinates: { x: 288, y: 104 } },
@@ -358,23 +379,29 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   // Load live data from Supabase
-  const loadSupabaseData = useCallback(async () => {
+  const loadSupabaseData = useCallback(async (isInitial = false) => {
     if (!isSupabaseConfigured()) {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
       return;
     }
 
     try {
-      // Small minimum delay (600ms) for smooth preloader transition without jarring flashes
-      const minDelayPromise = new Promise(resolve => setTimeout(resolve, 600));
-
-      const [remoteInv, remoteOrd, remoteRet, remoteCli] = await Promise.all([
+      const fetchPromise = Promise.all([
         fetchSupabaseInventory(),
         fetchSupabaseOrders(),
         fetchSupabaseRetailers(),
         fetchSupabaseClients(),
-        minDelayPromise,
       ]);
+
+      let results;
+      if (isInitial) {
+        const minDelayPromise = new Promise(resolve => setTimeout(resolve, 600));
+        [results] = await Promise.all([fetchPromise, minDelayPromise]);
+      } else {
+        results = await fetchPromise;
+      }
+
+      const [remoteInv, remoteOrd, remoteRet, remoteCli] = results;
 
       if (remoteInv && remoteInv.length > 0) {
         setInventory(remoteInv);
@@ -395,19 +422,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Error loading Supabase data:", error);
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadSupabaseData();
+    loadSupabaseData(true);
 
     if (isSupabaseConfigured()) {
-      // Real-time subscription for live updates
       const channel = supabase
         .channel("supabase-realtime-dashboard")
         .on("postgres_changes", { event: "*", schema: "public" }, () => {
-          loadSupabaseData();
+          loadSupabaseData(false);
         })
         .subscribe();
 
@@ -418,20 +444,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [loadSupabaseData]);
 
   // Seed Supabase with initial data
-  const seedDatabase = async () => {
+  const seedDatabase = useCallback(async () => {
     try {
       setIsSeeding(true);
       await seedSupabaseData(initialMockInventory, initialMockOrders, initialMockRetailers);
       addLog("Database Seeded", "Successfully populated Supabase with sample dataset", "inventory");
+      addToast("success", "Supabase Database Seeded", "Sample dataset loaded into live tables");
     } catch (err: unknown) {
       const error = err as Error;
-      alert(error?.message || "Failed to seed database.");
+      addToast("error", "Database Seeding Error", error?.message || "Failed to seed database.");
     } finally {
       setIsSeeding(false);
     }
-  };
+  }, [addLog, addToast]);
 
-  const addSku = (newItem: Omit<InventoryItem, "status">) => {
+  const addSku = useCallback((newItem: Omit<InventoryItem, "status">) => {
     let status: InventoryItem["status"] = "In Stock";
     if (newItem.qty === 0) status = "Out of Stock";
     else if (newItem.qty <= newItem.minRequired) status = "Low Stock";
@@ -439,12 +466,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const itemWithStatus: InventoryItem = { ...newItem, status };
     setInventory(prev => [itemWithStatus, ...prev]);
     addLog(`SKU Added: ${itemWithStatus.sku}`, `Added "${itemWithStatus.name}" with stock ${itemWithStatus.qty}`, "inventory");
+    addToast("success", "SKU Created", `${itemWithStatus.name} (${itemWithStatus.sku}) cataloged`);
 
     // Persist to Supabase
     insertSupabaseInventoryItem(itemWithStatus);
-  };
+  }, [addLog, addToast]);
 
-  const restockSku = (sku: string) => {
+  const restockSku = useCallback((sku: string) => {
     setInventory(prev =>
       prev.map(item => {
         if (item.sku === sku) {
@@ -455,38 +483,49 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
           updateSupabaseInventoryQty(sku, newQty, status);
           addLog(`Restocked SKU ${sku}`, `Replenished stock by +50 units (New Qty: ${newQty})`, "inventory");
+          addToast("success", "Stock Replenished", `${item.name} (+50 units). New Qty: ${newQty}`);
           return { ...item, qty: newQty, status };
         }
         return item;
       })
     );
-  };
+  }, [addLog, addToast]);
 
-  const deleteSku = (sku: string) => {
-    setInventory(prev => prev.filter(item => item.sku !== sku));
-    addLog(`Deleted SKU ${sku}`, `Removed inventory item from catalog`, "inventory");
+  const deleteSku = useCallback((sku: string) => {
+    setInventory(prev => {
+      const target = prev.find(i => i.sku === sku);
+      addLog(`Deleted SKU ${sku}`, `Removed inventory item from catalog`, "inventory");
+      addToast("error", "SKU Removed", `${target?.name || sku} deleted from catalog`);
+      return prev.filter(item => item.sku !== sku);
+    });
     deleteSupabaseInventoryItem(sku);
-  };
+  }, [addLog, addToast]);
 
-  const updateOrderStatus = (orderId: string, status: Order["status"]) => {
+  const updateOrderStatus = useCallback((orderId: string, status: Order["status"], carrier?: string, trackingNum?: string, eta?: string) => {
     setOrders(prev =>
       prev.map(order => {
         if (order.id === orderId) {
-          let eta = order.eta;
-          if (status === "Delivered") eta = "Delivered (Just Now)";
-          else if (status === "In Transit") eta = "ETA: 2 hours";
-          else if (status === "Cancelled") eta = "Cancelled";
+          let updatedEta = eta || order.eta;
+          if (!eta) {
+            if (status === "Delivered") updatedEta = "Delivered (Just Now)";
+            else if (status === "In Transit") updatedEta = "ETA: 2 hours";
+            else if (status === "Cancelled") updatedEta = "Cancelled";
+          }
 
-          updateSupabaseOrderStatus(orderId, status, eta);
-          addLog(`Order ${orderId} Updated`, `Status changed to ${status}`, "order");
-          return { ...order, status, eta };
+          const updatedCarrier = carrier || order.carrier;
+          const updatedTrackingNum = trackingNum || order.trackingNum;
+
+          updateSupabaseOrderStatus(orderId, status, updatedEta);
+          addLog(`Order ${orderId} Updated`, `Status: ${status} | Carrier: ${updatedCarrier}`, "order");
+          addToast("info", `Order ${orderId} Updated`, `Status changed to ${status}`);
+          return { ...order, status, carrier: updatedCarrier, trackingNum: updatedTrackingNum, eta: updatedEta };
         }
         return order;
       })
     );
-  };
+  }, [addLog, addToast]);
 
-  const createOrder = (retailerName: string, itemsList: { sku: string; qty: number }[]) => {
+  const createOrder = useCallback((retailerName: string, itemsList: { sku: string; qty: number }[]) => {
     const retailer = retailers.find(r => r.name === retailerName);
     const location = retailer ? retailer.location : "Boston, MA";
 
@@ -536,16 +575,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     setOrders(prev => [newOrder, ...prev]);
     addLog(`Sales Order Created (${newOrderId})`, `Assigned to ${retailerName} for $${totalPrice.toFixed(2)}`, "order");
+    addToast("success", "Sales Order Created", `${newOrderId} for ${retailerName} ($${totalPrice.toFixed(2)})`);
     insertSupabaseOrder(newOrder);
-  };
+  }, [retailers, inventory, orders.length, addLog, addToast]);
 
-  const deleteOrder = (id: string) => {
+  const deleteOrder = useCallback((id: string) => {
     setOrders(prev => prev.filter(o => o.id !== id));
     addLog(`Deleted Order ${id}`, `Removed sales order from pipeline`, "order");
+    addToast("error", "Order Removed", `${id} deleted from pipeline`);
     deleteSupabaseOrder(id);
-  };
+  }, [addLog, addToast]);
 
-  const addRetailer = (newRetailer: Partial<Retailer>) => {
+  const addRetailer = useCallback((newRetailer: Partial<Retailer>) => {
     const retailerItem: Retailer = {
       id: `RET-0${retailers.length + 1}`,
       name: newRetailer.name || "New Partner Hub",
@@ -562,72 +603,120 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     setRetailers(prev => [retailerItem, ...prev]);
     addLog(`Retailer Onboarded: ${retailerItem.name}`, `Added partner account in ${retailerItem.location}`, "retailer");
+    addToast("success", "Partner Onboarded", `${retailerItem.name} (${retailerItem.location})`);
     insertSupabaseRetailer(retailerItem);
-  };
+  }, [retailers.length, addLog, addToast]);
 
-  const updateRetailer = (id: string, updates: Partial<Retailer>) => {
+  const updateRetailer = useCallback((id: string, updates: Partial<Retailer>) => {
     setRetailers(prev =>
       prev.map(r => {
         if (r.id === id) {
           const updated = { ...r, ...updates };
           updateSupabaseRetailer(id, updates);
           addLog(`Updated Partner ${r.name}`, `Status: ${updated.status}, Grade: ${updated.grade}`, "retailer");
+          addToast("info", "Partner Updated", `${r.name} profile updated`);
           return updated;
         }
         return r;
       })
     );
-  };
+  }, [addLog, addToast]);
 
-  const deleteRetailer = (id: string) => {
-    setRetailers(prev => prev.filter(r => r.id !== id));
-    addLog(`Deleted Retailer ${id}`, `Removed partner hub from network`, "retailer");
+  const deleteRetailer = useCallback((id: string) => {
+    setRetailers(prev => {
+      const target = prev.find(r => r.id === id);
+      addLog(`Deleted Retailer ${id}`, `Removed partner hub from network`, "retailer");
+      addToast("error", "Partner Removed", `${target?.name || id} removed from network`);
+      return prev.filter(r => r.id !== id);
+    });
     deleteSupabaseRetailer(id);
-  };
+  }, [addLog, addToast]);
+
+  const contextValue = useMemo(() => {
+    return {
+      userRole,
+      isAdmin,
+      isSuperAdmin,
+      setUserRole,
+      inventory,
+      orders,
+      retailers,
+      fleet,
+      activityLogs,
+      clients,
+      searchQuery,
+      setSearchQuery,
+      isModalOpen,
+      setIsModalOpen,
+      isOrderModalOpen,
+      setIsOrderModalOpen,
+      isUpgradeModalOpen,
+      setIsUpgradeModalOpen,
+      upgradeReason,
+      triggerUpgradeModal,
+      unreadNotificationsCount,
+      markNotificationsAsRead,
+      isLoading,
+      isSupabaseLive,
+      isSeeding,
+      seedDatabase,
+      addSku,
+      restockSku,
+      deleteSku,
+      updateOrderStatus,
+      createOrder,
+      deleteOrder,
+      addRetailer,
+      updateRetailer,
+      deleteRetailer,
+      addClientBusiness,
+      toggleClientStatus,
+      deleteClientBusiness,
+      toasts,
+      addToast,
+      dismissToast,
+    };
+  }, [
+    userRole,
+    isAdmin,
+    isSuperAdmin,
+    setUserRole,
+    inventory,
+    orders,
+    retailers,
+    fleet,
+    activityLogs,
+    clients,
+    searchQuery,
+    isModalOpen,
+    isOrderModalOpen,
+    isUpgradeModalOpen,
+    upgradeReason,
+    unreadNotificationsCount,
+    markNotificationsAsRead,
+    isLoading,
+    isSupabaseLive,
+    isSeeding,
+    seedDatabase,
+    addSku,
+    restockSku,
+    deleteSku,
+    updateOrderStatus,
+    createOrder,
+    deleteOrder,
+    addRetailer,
+    updateRetailer,
+    deleteRetailer,
+    addClientBusiness,
+    toggleClientStatus,
+    deleteClientBusiness,
+    toasts,
+    addToast,
+    dismissToast,
+  ]);
 
   return (
-    <DashboardContext.Provider
-      value={{
-        userRole,
-        isAdmin,
-        isSuperAdmin,
-        setUserRole,
-        inventory,
-        orders,
-        retailers,
-        fleet,
-        activityLogs,
-        clients,
-        searchQuery,
-        setSearchQuery,
-        isModalOpen,
-        setIsModalOpen,
-        isOrderModalOpen,
-        setIsOrderModalOpen,
-        isUpgradeModalOpen,
-        setIsUpgradeModalOpen,
-        upgradeReason,
-        triggerUpgradeModal,
-        unreadNotificationsCount,
-        markNotificationsAsRead,
-        isLoading,
-        isSupabaseLive,
-        isSeeding,
-        seedDatabase,
-        addSku,
-        restockSku,
-        deleteSku,
-        updateOrderStatus,
-        createOrder,
-        deleteOrder,
-        addRetailer,
-        updateRetailer,
-        deleteRetailer,
-        addClientBusiness,
-        toggleClientStatus,
-        deleteClientBusiness,
-      }}
-    >
+    <DashboardContext.Provider value={contextValue}>
       {children}
     </DashboardContext.Provider>
   );

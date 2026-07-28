@@ -7,6 +7,7 @@ import Modal from "./Modal";
 import OrderModal from "./OrderModal";
 import UpgradeModal from "./UpgradeModal";
 import Preloader from "./Preloader";
+import ToastContainer from "./Toast";
 import { useDashboard } from "@/context/DashboardContext";
 
 interface DashboardLayoutProps {
@@ -29,13 +30,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     addSku, 
     createOrder,
     retailers,
-    inventory 
+    inventory,
+    toasts,
+    dismissToast,
   } = useDashboard();
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent">
       {/* Global Hydration & Supabase Preloader Overlay */}
       <Preloader isLoading={isLoading} />
+      
+      {/* Global B2B Notification Toasts */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       {/* Sidebar with standard Next.js route navigation */}
       <Sidebar 
         isOpen={sidebarOpen} 
