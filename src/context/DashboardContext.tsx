@@ -195,7 +195,7 @@ const initialMockClients: ClientBusiness[] = [
     maxUsers: 50,
     activeUsers: 28,
     status: "Active",
-    mrr: 1999,
+    mrr: 250000,
     createdAt: "2026-01-15",
   },
   {
@@ -207,7 +207,7 @@ const initialMockClients: ClientBusiness[] = [
     maxUsers: 20,
     activeUsers: 14,
     status: "Active",
-    mrr: 799,
+    mrr: 95000,
     createdAt: "2026-03-02",
   },
   {
@@ -219,7 +219,7 @@ const initialMockClients: ClientBusiness[] = [
     maxUsers: 5,
     activeUsers: 3,
     status: "Pending",
-    mrr: 299,
+    mrr: 35000,
     createdAt: "2026-06-18",
   },
   {
@@ -231,7 +231,7 @@ const initialMockClients: ClientBusiness[] = [
     maxUsers: 50,
     activeUsers: 41,
     status: "Suspended",
-    mrr: 1999,
+    mrr: 250000,
     createdAt: "2025-11-04",
   },
 ];
@@ -326,58 +326,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setUnreadNotificationsCount(prev => prev + 1);
   }, []);
 
-  const addClientBusiness = useCallback((clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
-    const planMrrMap: Record<string, number> = {
-      Starter: 299,
-      Professional: 799,
-      Enterprise: 1999,
-    };
-
-    const newClient: ClientBusiness = {
-      ...clientData,
-      id: `CLI-${100 + clients.length + 1}`,
-      activeUsers: 1,
-      mrr: planMrrMap[clientData.plan] || 799,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setClients(prev => [newClient, ...prev]);
-    addLog(`Client Onboarded: ${newClient.name}`, `Provisioned ${newClient.plan} account for ${newClient.ownerEmail}`, "retailer");
-    addToast("success", "Client Account Provisioned", `${newClient.name} successfully added to SaaS engine`);
-    insertSupabaseClient(newClient);
-  }, [clients.length, addLog, addToast]);
-
-  const toggleClientStatus = useCallback((id: string) => {
-    setClients(prev =>
-      prev.map(client => {
-        if (client.id === id) {
-          const nextStatus: ClientBusiness["status"] = client.status === "Active" ? "Suspended" : "Active";
-          addLog(`Client Access ${nextStatus}`, `${client.name} status updated to ${nextStatus}`, "retailer");
-          addToast(nextStatus === "Active" ? "success" : "warning", `Client ${nextStatus}`, `${client.name} access is now ${nextStatus}`);
-          updateSupabaseClientStatus(id, nextStatus);
-          return { ...client, status: nextStatus };
-        }
-        return client;
-      })
-    );
-  }, [addLog, addToast]);
-
-  const deleteClientBusiness = useCallback((id: string) => {
-    const target = clients.find(c => c.id === id);
-    if (target) {
-      setClients(prev => prev.filter(c => c.id !== id));
-      addLog(`Client Account Deleted`, `Removed ${target.name} from SaaS platform`, "retailer");
-      addToast("error", "Client Removed", `${target.name} account deleted`);
-      deleteSupabaseClient(id);
-    }
-  }, [clients, addLog, addToast]);
-
-  const [fleet] = useState<FleetVehicle[]>([
-    { id: "TX-89", driver: "Albert Carter", phone: "+1 (555) 019-8822", route: "Alpha", origin: "Central Hub", destination: "Walmart East Hub", status: "Delayed", progress: 60, speed: 15, temp: 34, cargo: "Steel Pins & Assemblies", eta: "14:30 (Delayed 45 mins)", coordinates: { x: 288, y: 104 } },
-    { id: "FL-52", driver: "Maria Ramirez", phone: "+1 (555) 012-9900", route: "Beta", origin: "Central Hub", destination: "Target Dist Center", status: "On Schedule", progress: 45, speed: 62, cargo: "Hydraulic System Tubing", eta: "16:45", coordinates: { x: 220, y: 175 } },
-    { id: "NY-77", driver: "Derrick Vance", phone: "+1 (555) 015-7722", route: "Delta", origin: "Central Hub", destination: "Amazon FC MD-3", status: "On Schedule", progress: 85, speed: 58, temp: -2, cargo: "Frozen Medical Components", eta: "18:00", coordinates: { x: 380, y: 85 } },
-  ]);
-
   // Load live data from Supabase
   const loadSupabaseData = useCallback(async (isInitial = false) => {
     if (!isSupabaseConfigured()) {
@@ -425,6 +373,61 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       if (isInitial) setIsLoading(false);
     }
   }, []);
+
+  const addClientBusiness = useCallback(async (clientData: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => {
+    const planMrrMap: Record<string, number> = {
+      Starter: 35000,
+      Professional: 95000,
+      Enterprise: 250000,
+    };
+
+    const newClient: ClientBusiness = {
+      ...clientData,
+      id: `CLI-${100 + clients.length + 1}`,
+      activeUsers: 1,
+      mrr: planMrrMap[clientData.plan] || 95000,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+
+    setClients(prev => [newClient, ...prev]);
+    addLog(`Client Onboarded: ${newClient.name}`, `Provisioned ${newClient.plan} account for ${newClient.ownerEmail}`, "retailer");
+    addToast("success", "Client Account Provisioned", `${newClient.name} successfully added to SaaS engine`);
+    await insertSupabaseClient(newClient);
+    await loadSupabaseData(false);
+  }, [clients.length, addLog, addToast, loadSupabaseData]);
+
+  const toggleClientStatus = useCallback((id: string) => {
+    setClients(prev =>
+      prev.map(client => {
+        if (client.id === id) {
+          const nextStatus: ClientBusiness["status"] = client.status === "Active" ? "Suspended" : "Active";
+          addLog(`Client Access ${nextStatus}`, `${client.name} status updated to ${nextStatus}`, "retailer");
+          addToast(nextStatus === "Active" ? "success" : "warning", `Client ${nextStatus}`, `${client.name} access is now ${nextStatus}`);
+          updateSupabaseClientStatus(id, nextStatus);
+          return { ...client, status: nextStatus };
+        }
+        return client;
+      })
+    );
+  }, [addLog, addToast]);
+
+  const deleteClientBusiness = useCallback((id: string) => {
+    setClients(prev => {
+      const target = prev.find(c => c.id === id);
+      if (target) {
+        addLog(`Client Account Deleted`, `Removed ${target.name} from SaaS platform`, "retailer");
+        addToast("error", "Client Removed", `${target.name} account deleted`);
+      }
+      return prev.filter(c => c.id !== id);
+    });
+    deleteSupabaseClient(id);
+  }, [addLog, addToast]);
+
+  const [fleet] = useState<FleetVehicle[]>([
+    { id: "TX-89", driver: "Albert Carter", phone: "+1 (555) 019-8822", route: "Alpha", origin: "Central Hub", destination: "Walmart East Hub", status: "Delayed", progress: 60, speed: 15, temp: 34, cargo: "Steel Pins & Assemblies", eta: "14:30 (Delayed 45 mins)", coordinates: { x: 288, y: 104 } },
+    { id: "FL-52", driver: "Maria Ramirez", phone: "+1 (555) 012-9900", route: "Beta", origin: "Central Hub", destination: "Target Dist Center", status: "On Schedule", progress: 45, speed: 62, cargo: "Hydraulic System Tubing", eta: "16:45", coordinates: { x: 220, y: 175 } },
+    { id: "NY-77", driver: "Derrick Vance", phone: "+1 (555) 015-7722", route: "Delta", origin: "Central Hub", destination: "Amazon FC MD-3", status: "On Schedule", progress: 85, speed: 58, temp: -2, cargo: "Frozen Medical Components", eta: "18:00", coordinates: { x: 380, y: 85 } },
+  ]);
 
   useEffect(() => {
     loadSupabaseData(true);

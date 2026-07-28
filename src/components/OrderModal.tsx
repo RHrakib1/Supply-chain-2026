@@ -224,38 +224,38 @@ export default function OrderModal({ isOpen, onClose, retailers, inventory, onCr
                           <option value="">Select product...</option>
                           {inventory.map(item => (
                             <option key={item.sku} value={item.sku} className="bg-slate-950">
-                              {item.name} - SKU: {item.sku} (${item.unitPrice.toFixed(2)})
+                              {item.name} - SKU: {item.sku} (৳ {item.unitPrice.toFixed(2)})
                             </option>
                           ))}
                         </select>
                       </div>
 
                       {/* Quantity Input */}
-                      <div className="w-24 space-y-1.5">
+                      <div className="w-28 space-y-1.5">
                         <input
                           type="number"
                           min="1"
-                          placeholder="Qty"
-                          value={line.qty || ""}
+                          value={line.qty}
                           onChange={(e) => {
                             updateLine(line.id, "qty", parseInt(e.target.value) || 0);
                             setError("");
                           }}
-                          className={`w-full px-3 py-2 text-xs bg-slate-950 border rounded-xl text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 ${
-                            line.isOverStock ? "border-rose-500" : "border-white/10 focus:border-indigo-500"
+                          className={`w-full px-3 py-2 text-xs bg-slate-950 border rounded-xl text-slate-200 focus:outline-none focus:border-indigo-500 ${
+                            line.isOverStock ? "border-rose-500 text-rose-300 font-bold" : "border-white/10"
                           }`}
                         />
                       </div>
 
-                      {/* Action buttons: Remove line */}
-                      <button
-                        type="button"
-                        onClick={() => removeLine(line.id)}
-                        disabled={lines.length === 1}
-                        className="p-2 text-slate-500 hover:text-rose-450 hover:bg-rose-500/10 rounded-lg transition-colors self-center disabled:opacity-40 disabled:hover:bg-transparent"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {/* Remove Line Button */}
+                      {lines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLine(line.id)}
+                          className="mt-1.5 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Stock verification alert indicators */}
@@ -263,7 +263,7 @@ export default function OrderModal({ isOpen, onClose, retailers, inventory, onCr
                       <div className="flex items-center justify-between text-[10px] font-semibold border-t border-white/5 pt-2">
                         <div className="flex items-center gap-1">
                           <span className="text-slate-500">Unit Price:</span>
-                          <span className="text-slate-350">${line.product.unitPrice.toFixed(2)}</span>
+                          <span className="text-slate-350">৳ {line.product.unitPrice.toFixed(2)}</span>
                           <span className="text-slate-700">|</span>
                           <span className="text-slate-500">Available:</span>
                           <span className={`font-bold ${
@@ -285,7 +285,7 @@ export default function OrderModal({ isOpen, onClose, retailers, inventory, onCr
                               Exceeds Stock! Max: {line.product.qty}
                             </span>
                           ) : (
-                            <span>Subtotal: <strong className="text-indigo-400">${line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                            <span>Subtotal: <strong className="text-indigo-400">৳ {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
                           )}
                         </div>
                       </div>
@@ -305,7 +305,7 @@ export default function OrderModal({ isOpen, onClose, retailers, inventory, onCr
               </div>
               <div className="text-right">
                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block">Total Billing Price</span>
-                <span className="text-2xl font-black text-white">${totals.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="text-2xl font-black text-white">৳ {totals.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
 

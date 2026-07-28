@@ -304,7 +304,7 @@ export async function fetchSupabaseClients(): Promise<ClientBusiness[] | null> {
       maxUsers: c.max_users ?? c.maxUsers ?? 20,
       activeUsers: c.active_users ?? c.activeUsers ?? 1,
       status: (c.status || "Active") as ClientBusiness["status"],
-      mrr: c.mrr ?? (c.plan === "Enterprise" ? 1999 : c.plan === "Starter" ? 299 : 799),
+      mrr: c.mrr ?? (c.plan === "Enterprise" ? 250000 : c.plan === "Starter" ? 35000 : 95000),
       createdAt: c.created_at?.split("T")[0] || c.createdAt || new Date().toISOString().split("T")[0],
     }));
   } catch (err) {
@@ -315,20 +315,36 @@ export async function fetchSupabaseClients(): Promise<ClientBusiness[] | null> {
 
 export async function insertSupabaseClient(client: ClientBusiness) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from("clients").insert([
-    {
-      id: client.id,
-      name: client.name,
-      owner_name: client.ownerName,
-      owner_email: client.ownerEmail,
-      plan: client.plan,
-      max_users: client.maxUsers,
-      active_users: client.activeUsers,
-      status: client.status,
-      mrr: client.mrr,
-    },
-  ]);
-  if (error) console.error("Error inserting client:", error.message);
+  try {
+    const { error } = await supabase.from("clients").insert([
+      {
+        name: client.name,
+        owner_name: client.ownerName,
+        owner_email: client.ownerEmail,
+        plan: client.plan,
+        max_users: client.maxUsers,
+        active_users: client.activeUsers,
+        status: client.status,
+        mrr: client.mrr,
+      },
+    ]);
+    if (error) {
+      console.warn("Notice inserting client with snake_case:", error.message);
+      // Fallback try camelCase schema insertion if table columns use camelCase
+      await supabase.from("clients").insert([{
+        name: client.name,
+        ownerName: client.ownerName,
+        ownerEmail: client.ownerEmail,
+        plan: client.plan,
+        maxUsers: client.maxUsers,
+        activeUsers: client.activeUsers,
+        status: client.status,
+        mrr: client.mrr,
+      }]);
+    }
+  } catch (err) {
+    console.error("Error inserting client in Supabase:", err);
+  }
 }
 
 export async function updateSupabaseClientStatus(id: string, status: ClientBusiness["status"]) {

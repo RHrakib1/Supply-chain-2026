@@ -321,7 +321,7 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
                     fontSize: "12px"
                   }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`$${Number(value ?? 0).toLocaleString()}`, "Order Volume"]}
+                  formatter={(value: any) => [`৳ ${Number(value ?? 0).toLocaleString()}`, "Order Volume"]}
                 />
                 <Area 
                   type="monotone" 
@@ -330,7 +330,7 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
                   strokeWidth={3} 
                   fillOpacity={1} 
                   fill="url(#colorRevenue)" 
-                  name="Sales Revenue ($)"
+                  name="Sales Revenue (৳)"
                 />
               </AreaChart>
             </ResponsiveContainer>

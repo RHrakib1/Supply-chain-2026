@@ -203,17 +203,22 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
               <div className="px-5 py-4 border-b border-white/10 bg-slate-950/40 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <Bell className="h-4 w-4 text-indigo-400" />
-                  <span className="font-semibold text-white text-sm">Notifications & Audit Feed</span>
+                  <span className="font-semibold text-white text-sm">Real-time Notification Center</span>
                 </div>
-                {unreadNotificationsCount > 0 ? (
-                  <span className="text-[10px] bg-rose-500/20 text-rose-350 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold">
-                    {unreadNotificationsCount} New
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {userRole === "super_admin" ? "SaaS Owner" : isAdmin ? "Hub Admin" : "User Ops"}
                   </span>
-                ) : (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-medium">
-                    All Read
-                  </span>
-                )}
+                  {unreadNotificationsCount > 0 ? (
+                    <span className="text-[10px] bg-rose-500/20 text-rose-350 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold">
+                      {unreadNotificationsCount} New
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-medium">
+                      All Read
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="divide-y divide-white/5 max-h-96 overflow-y-auto">
@@ -222,13 +227,13 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
                     const getIconConfig = (type: string) => {
                       switch (type) {
                         case "inventory":
-                          return { icon: Package, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
+                          return { icon: Package, label: "Inventory", color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
                         case "order":
-                          return { icon: ShoppingCart, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" };
+                          return { icon: ShoppingCart, label: "Order Ops", color: "text-blue-400 bg-blue-500/10 border-blue-500/20" };
                         case "retailer":
-                          return { icon: Database, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
+                          return { icon: Database, label: "Tenant / Network", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
                         default:
-                          return { icon: Bell, color: "text-slate-400 bg-slate-500/10 border-slate-500/20" };
+                          return { icon: Bell, label: "System", color: "text-slate-400 bg-slate-500/10 border-slate-500/20" };
                       }
                     };
 
@@ -241,7 +246,12 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
                           <IconComp className="h-4 w-4" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-white leading-tight truncate">{log.title}</p>
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-xs font-bold text-white leading-tight truncate">{log.title}</p>
+                            <span className="text-[9px] font-semibold text-slate-400 bg-slate-800/60 px-1.5 py-0.5 rounded shrink-0">
+                              {config.label}
+                            </span>
+                          </div>
                           <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{log.description}</p>
                           <div className="flex items-center gap-1 mt-1.5 text-[10px] text-slate-500 font-medium">
                             <Clock className="h-3 w-3" />
@@ -259,11 +269,11 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
               <div className="px-5 py-3 border-t border-white/10 bg-slate-950/40 flex justify-between items-center text-xs">
                 <button 
                   onClick={markNotificationsAsRead}
-                  className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors text-[11px]"
+                  className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors text-[11px] cursor-pointer"
                 >
                   Mark all as read
                 </button>
-                <span className="text-[10px] text-slate-500 font-medium">Supabase Telemetry</span>
+                <span className="text-[10px] text-slate-500 font-medium">Supabase Realtime Feed</span>
               </div>
             </div>
           )}

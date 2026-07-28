@@ -139,7 +139,7 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
           <div className="glass-panel p-4 rounded-xl">
             <span className="text-xs font-medium text-slate-400">Total Asset Value</span>
             <span className="block text-2xl font-extrabold text-indigo-400 mt-1">
-              ${totalAssetValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ৳ {totalAssetValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         )}
@@ -231,11 +231,11 @@ export default function InventoryView({ inventory, searchQuery, onRestock, onOpe
                       </td>
 
                       {isAdmin && (
-                        <td className="py-4 px-6 text-slate-400">${item.unitPrice.toFixed(2)}</td>
+                        <td className="py-4 px-6 text-slate-400">৳ {item.unitPrice.toFixed(2)}</td>
                       )}
                       {isAdmin && (
                         <td className="py-4 px-6 text-slate-200 font-medium">
-                          ${(item.qty * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ৳ {(item.qty * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       )}
 

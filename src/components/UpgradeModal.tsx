@@ -94,7 +94,7 @@ export default function UpgradeModal({ isOpen, onClose, reason }: UpgradeModalPr
           }`}>
             <div>
               <span className="text-xs font-bold text-slate-400 uppercase">Starter</span>
-              <h3 className="text-xl font-black text-white mt-1">$299<span className="text-xs font-normal text-slate-400">/mo</span></h3>
+              <h3 className="text-xl font-black text-white mt-1">৳ 35,000<span className="text-xs font-normal text-slate-400">/mo</span></h3>
               <ul className="mt-4 space-y-2 text-[11px] text-slate-300">
                 <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-400" /> 5 User Seats</li>
                 <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-400" /> 10 Inventory SKUs</li>
@@ -122,7 +122,7 @@ export default function UpgradeModal({ isOpen, onClose, reason }: UpgradeModalPr
             <span className="absolute -top-2.5 right-3 bg-indigo-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Most Popular</span>
             <div>
               <span className="text-xs font-bold text-indigo-400 uppercase">Professional</span>
-              <h3 className="text-xl font-black text-white mt-1">$799<span className="text-xs font-normal text-slate-400">/mo</span></h3>
+              <h3 className="text-xl font-black text-white mt-1">৳ 95,000<span className="text-xs font-normal text-slate-400">/mo</span></h3>
               <ul className="mt-4 space-y-2 text-[11px] text-slate-300">
                 <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-indigo-400" /> 20 User Seats</li>
                 <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-indigo-400" /> 50 Inventory SKUs</li>
@@ -147,7 +147,7 @@ export default function UpgradeModal({ isOpen, onClose, reason }: UpgradeModalPr
           }`}>
             <div>
               <span className="text-xs font-bold text-purple-400 uppercase">Enterprise</span>
-              <h3 className="text-xl font-black text-white mt-1">$1,999<span className="text-xs font-normal text-slate-400">/mo</span></h3>
+              <h3 className="text-xl font-black text-white mt-1">৳ 2,50,000<span className="text-xs font-normal text-slate-400">/mo</span></h3>
               <ul className="mt-4 space-y-2 text-[11px] text-slate-300">
                 <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-purple-400" /> 500 User Seats</li>
                 <li className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-purple-400" /> 500 Inventory SKUs</li>

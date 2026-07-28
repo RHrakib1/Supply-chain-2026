@@ -159,7 +159,7 @@ export default function Modal({ isOpen, onClose, onAddSku }: ModalProps) {
 
             {/* Unit Price */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit Price ($)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit Price (৳)</label>
               <input
                 type="number"
                 step="0.01"

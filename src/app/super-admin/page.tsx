@@ -177,7 +177,7 @@ export default function SuperAdminPage() {
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-white">${metrics.totalMrr.toLocaleString()}</span>
+            <span className="text-3xl font-black text-white">৳ {metrics.totalMrr.toLocaleString()}</span>
             <span className="text-xs font-bold text-emerald-400 flex items-center gap-0.5">
               <TrendingUp className="h-3 w-3" />
               /month
@@ -292,7 +292,7 @@ export default function SuperAdminPage() {
                           ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
                           : "bg-blue-500/10 border-blue-500/30 text-blue-300"
                       }`}>
-                      {client.plan} (${client.mrr}/mo)
+                      {client.plan} (৳ {client.mrr.toLocaleString()}/mo)
                     </span>
                   </td>
 
@@ -445,9 +445,9 @@ export default function SuperAdminPage() {
                     onChange={(e) => setPlan(e.target.value as "Starter" | "Professional" | "Enterprise")}
                     className="w-full px-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-amber-500"
                   >
-                    <option value="Starter">Starter ($299/mo)</option>
-                    <option value="Professional">Professional ($799/mo)</option>
-                    <option value="Enterprise">Enterprise ($1,999/mo)</option>
+                    <option value="Starter">Starter (৳ 35,000/mo)</option>
+                    <option value="Professional">Professional (৳ 95,000/mo)</option>
+                    <option value="Enterprise">Enterprise (৳ 2,50,000/mo)</option>
                   </select>
                 </div>
 

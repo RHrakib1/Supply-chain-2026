@@ -81,7 +81,7 @@ export default function AnalyticsView({ searchQuery }: AnalyticsViewProps) {
   const kpiCards = [
     {
       title: "Total Monthly Sales",
-      value: `$${totalMonthlySalesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: `৳ ${totalMonthlySalesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       change: "+12.4%",
       isPositive: true,
       subtitle: "vs prior month",
@@ -204,7 +204,7 @@ export default function AnalyticsView({ searchQuery }: AnalyticsViewProps) {
               <BarChart data={monthlyRevenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
                 <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(val) => `$${val / 1000}k`} />
+                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(val) => `৳ ${val / 1000}k`} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: "#090d16", 
@@ -214,11 +214,11 @@ export default function AnalyticsView({ searchQuery }: AnalyticsViewProps) {
                     fontSize: "12px"
                   }} 
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`$${Number(value ?? 0).toLocaleString()}`, "Amount"]}
+                  formatter={(value: any) => [`৳ ${Number(value ?? 0).toLocaleString()}`, "Amount"]}
                 />
                 <Legend wrapperStyle={{ paddingTop: "12px", fontSize: "12px" }} />
-                <Bar dataKey="revenue" fill="#6366f1" radius={[6, 6, 0, 0]} name="Actual Revenue ($)" />
-                <Bar dataKey="target" fill="#38bdf8" radius={[6, 6, 0, 0]} name="Target Revenue ($)" />
+                <Bar dataKey="revenue" fill="#6366f1" radius={[6, 6, 0, 0]} name="Actual Revenue (৳)" />
+                <Bar dataKey="target" fill="#38bdf8" radius={[6, 6, 0, 0]} name="Target Revenue (৳)" />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -236,7 +236,7 @@ export default function CourierDispatchModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Cash on Delivery (COD Amount $)</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Cash on Delivery (COD Amount ৳)</label>
                 <input
                   type="number"
                   value={codAmount}

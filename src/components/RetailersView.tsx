@@ -174,7 +174,7 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
             </div>
             <div>
               <span className="text-xs text-slate-400 font-medium">Total B2B Contract Value</span>
-              <span className="block text-2xl font-extrabold text-white mt-1">${(totalContractValue / 1000).toFixed(0)}k</span>
+              <span className="block text-2xl font-extrabold text-white mt-1">৳ {(totalContractValue / 1000).toFixed(0)}k</span>
             </div>
           </div>
         )}
@@ -249,7 +249,7 @@ export default function RetailersView({ retailers, searchQuery }: RetailersViewP
                   {isAdmin && (
                     <div>
                       <span className="text-[9px] text-slate-500 block uppercase font-bold">Total Sales</span>
-                      <span className="font-bold text-indigo-400 text-sm">${(r.totalVolume / 1000).toFixed(0)}k</span>
+                      <span className="font-bold text-indigo-400 text-sm">৳ {(r.totalVolume / 1000).toFixed(0)}k</span>
                     </div>
                   )}
 

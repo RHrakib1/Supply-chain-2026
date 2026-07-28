@@ -192,7 +192,7 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
                         <td className="py-4 px-5 text-slate-300 font-medium max-w-[150px] truncate">{o.items}</td>
                         
                         {isAdmin && (
-                          <td className="py-4 px-5 font-semibold text-indigo-400">${o.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-5 font-semibold text-indigo-400">৳ {o.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                         )}
                         
                         {/* Interactive Status Selector Dropdown */}
