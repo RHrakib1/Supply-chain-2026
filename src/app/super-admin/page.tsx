@@ -24,10 +24,21 @@ import { useDashboard } from "@/context/DashboardContext";
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const { isSuperAdmin, clients, addClientBusiness, toggleClientStatus, deleteClientBusiness, addToast } = useDashboard();
+  const { 
+    isSuperAdmin, 
+    userRole,
+    isLoading,
+    clients, 
+    addClientBusiness, 
+    toggleClientStatus, 
+    deleteClientBusiness, 
+    addToast,
+    loadSupabaseData 
+  } = useDashboard();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   // Form State for Client Onboarding
@@ -37,12 +48,21 @@ export default function SuperAdminPage() {
   const [plan, setPlan] = useState<"Starter" | "Professional" | "Enterprise">("Professional");
   const [maxUsers, setMaxUsers] = useState(20);
 
-  // Protect page: redirect non-super-admins to Home
+  // Hydrate live Supabase clients on mount
   useEffect(() => {
-    if (!isSuperAdmin) {
+    loadSupabaseData(false);
+  }, [loadSupabaseData]);
+
+  // Protect page: redirect non-super-admins to Home only after hydration completes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("userRole");
+      if (saved === "super_admin") return;
+    }
+    if (!isLoading && !isSuperAdmin && userRole !== "super_admin") {
       router.replace("/");
     }
-  }, [isSuperAdmin, router]);
+  }, [isLoading, isSuperAdmin, userRole, router]);
 
   // Platform Metrics
   const metrics = useMemo(() => {
@@ -75,36 +95,61 @@ export default function SuperAdminPage() {
     );
   }, [clients, searchQuery]);
 
-  if (!isSuperAdmin) return null;
-
-  const handleSubmitOnboard = (e: React.FormEvent) => {
+  const handleSubmitOnboard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !ownerEmail.trim() || !ownerName.trim()) {
       addToast("warning", "Missing Fields", "Please fill in all required fields.");
       return;
     }
 
-    addClientBusiness({
-      name,
-      ownerName,
-      ownerEmail,
-      plan,
-      maxUsers: Number(maxUsers),
-      status: "Active",
-    });
+    try {
+      setIsSubmitting(true);
+      await addClientBusiness({
+        name: name.trim(),
+        ownerName: ownerName.trim(),
+        ownerEmail: ownerEmail.trim(),
+        plan,
+        maxUsers: Number(maxUsers),
+        status: "Active",
+      });
 
-    setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges.`);
-    setIsModalOpen(false);
+      // Re-fetch live updated tenant list from Supabase
+      await loadSupabaseData(false);
 
-    // Reset form
-    setName("");
-    setOwnerName("");
-    setOwnerEmail("");
-    setPlan("Professional");
-    setMaxUsers(20);
+      setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges.`);
+      setIsModalOpen(false);
 
-    setTimeout(() => setSuccessNotice(null), 6000);
+      // Reset form
+      setName("");
+      setOwnerName("");
+      setOwnerEmail("");
+      setPlan("Professional");
+      setMaxUsers(20);
+
+      setTimeout(() => setSuccessNotice(null), 6000);
+    } catch (err) {
+      console.error("Error onboarding client:", err);
+      addToast("error", "Onboarding Failed", "Could not complete client onboarding.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const savedRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+  const effectiveSuperAdmin = isSuperAdmin || userRole === "super_admin" || savedRole === "super_admin";
+
+  if (!effectiveSuperAdmin && isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-semibold">Hydrating Super Admin Credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!effectiveSuperAdmin) return null;
 
   return (
     <div className="space-y-8">
@@ -483,9 +528,15 @@ export default function SuperAdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                 >
-                  Provision & Invite Client
+                  {isSubmitting ? (
+                    <div className="h-3.5 w-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  <span>{isSubmitting ? "Provisioning in Supabase..." : "Provision & Invite Client"}</span>
                 </button>
               </div>
             </form>

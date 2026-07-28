@@ -130,6 +130,7 @@ interface DashboardContextType {
   isLoading: boolean;
   isSupabaseLive: boolean;
   isSeeding: boolean;
+  loadSupabaseData: (isInitial?: boolean) => Promise<void>;
   seedDatabase: () => Promise<void>;
   addSku: (item: Omit<InventoryItem, "status">) => void;
   restockSku: (sku: string) => void;
@@ -662,6 +663,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isSupabaseLive,
       isSeeding,
+      loadSupabaseData,
       seedDatabase,
       addSku,
       restockSku,
@@ -700,6 +702,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isSupabaseLive,
     isSeeding,
+    loadSupabaseData,
     seedDatabase,
     addSku,
     restockSku,
