@@ -108,6 +108,7 @@ interface DashboardContextType {
   userRole: UserRole;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  activeTenantId: string | null;
   setUserRole: (role: UserRole) => Promise<void>;
   inventory: InventoryItem[];
   orders: Order[];
@@ -238,6 +239,8 @@ const initialMockClients: ClientBusiness[] = [
   },
 ];
 
+const MASTER_SUPER_ADMIN_EMAIL = "rakibhasanmd457@gmail.com";
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
 
@@ -253,6 +256,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const userPrimaryEmail = (
+    user?.primaryEmailAddress?.emailAddress ||
+    user?.emailAddresses?.[0]?.emailAddress ||
+    ""
+  ).toLowerCase();
+
+  const isMasterSuperAdmin = userPrimaryEmail === MASTER_SUPER_ADMIN_EMAIL;
+
   // Synchronously initialize localRoleOverride from localStorage to prevent role glitch on refresh
   const [localRoleOverride, setLocalRoleOverride] = useState<UserRole | null>(() => {
     if (typeof window !== "undefined") {
@@ -265,23 +276,76 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Determine user role: check local override first, then Clerk user metadata, default to 'admin'
-  const clerkRole = (user?.publicMetadata?.role as UserRole) || (user?.unsafeMetadata?.role as UserRole) || "admin";
-  const userRole: UserRole = localRoleOverride !== null ? localRoleOverride : clerkRole;
-  const isAdmin = userRole === "admin" || userRole === "super_admin";
-  const isSuperAdmin = userRole === "super_admin";
+  const rawClerkRole = (user?.publicMetadata?.role as UserRole) || (user?.unsafeMetadata?.role as UserRole) || "admin";
+
+  let effectiveRole: UserRole = localRoleOverride !== null ? localRoleOverride : rawClerkRole;
+
+  // STRICT MASTER EMAIL SUPER ADMIN LOCK: ONLY 'rakibhasanmd457@gmail.com' can hold super_admin
+  if (!isMasterSuperAdmin) {
+    if (effectiveRole === "super_admin") {
+      const fallbackRole = (user?.publicMetadata?.role as UserRole) || "admin";
+      effectiveRole = fallbackRole === "super_admin" ? "admin" : fallbackRole;
+    }
+  }
+
+  const userRole: UserRole = effectiveRole;
+  const isAdmin = userRole === "admin" || (isMasterSuperAdmin && userRole === "super_admin");
+  const isSuperAdmin = isMasterSuperAdmin && userRole === "super_admin";
+
+  // Cleanup Effect: Clear out 'super_admin' from unsafeMetadata & localStorage for non-master emails
+  useEffect(() => {
+    if (!user) return;
+    const email = (
+      user.primaryEmailAddress?.emailAddress ||
+      user.emailAddresses?.[0]?.emailAddress ||
+      ""
+    ).toLowerCase();
+
+    if (email && email !== MASTER_SUPER_ADMIN_EMAIL) {
+      if (typeof window !== "undefined") {
+        const savedRole = localStorage.getItem("userRole");
+        if (savedRole === "super_admin") {
+          localStorage.setItem("userRole", "admin");
+          setLocalRoleOverride("admin");
+        }
+      }
+
+      if (user.unsafeMetadata?.role === "super_admin") {
+        user.update({
+          unsafeMetadata: {
+            ...user.unsafeMetadata,
+            role: (user.publicMetadata?.role as string) || "admin",
+          },
+        }).catch(err => {
+          console.warn("Notice cleaning unsafeMetadata super_admin role:", err);
+        });
+      }
+    }
+  }, [user]);
 
   const setUserRole = useCallback(async (role: UserRole) => {
-    setLocalRoleOverride(role);
+    const email = (
+      user?.primaryEmailAddress?.emailAddress ||
+      user?.emailAddresses?.[0]?.emailAddress ||
+      ""
+    ).toLowerCase();
+    const isMaster = email === MASTER_SUPER_ADMIN_EMAIL;
+
+    // Never assign super_admin to non-master emails
+    const targetRole: UserRole = (!isMaster && role === "super_admin") ? "admin" : role;
+
+    setLocalRoleOverride(targetRole);
     if (typeof window !== "undefined") {
-      localStorage.setItem("userRole", role);
+      localStorage.setItem("userRole", targetRole);
     }
-    addToast("info", "Role Context Switch", `Switched active portal view to ${role.toUpperCase().replace("_", " ")}`);
+    addToast("info", "Role Context Switch", `Switched active portal view to ${targetRole.toUpperCase().replace("_", " ")}`);
+
     if (user) {
       try {
         await user.update({
           unsafeMetadata: {
             ...user.unsafeMetadata,
-            role,
+            role: targetRole,
           },
         });
       } catch (err) {
@@ -712,6 +776,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       userRole,
       isAdmin,
       isSuperAdmin,
+      activeTenantId,
       setUserRole,
       inventory,
       orders,
@@ -757,6 +822,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     userRole,
     isAdmin,
     isSuperAdmin,
+    activeTenantId,
     setUserRole,
     inventory,
     orders,

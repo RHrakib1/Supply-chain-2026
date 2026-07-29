@@ -28,7 +28,6 @@ export default function SuperAdminPage() {
   const router = useRouter();
   const { 
     isSuperAdmin, 
-    userRole,
     isLoading,
     clients, 
     setClients,
@@ -122,14 +121,10 @@ export default function SuperAdminPage() {
 
   // Protect page: redirect non-super-admins to Home only after hydration completes
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("userRole");
-      if (saved === "super_admin") return;
-    }
-    if (!isLoading && !isSuperAdmin && userRole !== "super_admin") {
+    if (!isLoading && !isSuperAdmin) {
       router.replace("/");
     }
-  }, [isLoading, isSuperAdmin, userRole, router]);
+  }, [isLoading, isSuperAdmin, router]);
 
   // Platform Metrics
   const metrics = useMemo(() => {
@@ -264,8 +259,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  const savedRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-  const effectiveSuperAdmin = isSuperAdmin || userRole === "super_admin" || savedRole === "super_admin";
+  const effectiveSuperAdmin = isSuperAdmin;
 
   if (!effectiveSuperAdmin && isLoading) {
     return (

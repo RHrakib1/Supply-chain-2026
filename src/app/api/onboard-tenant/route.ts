@@ -44,12 +44,21 @@ export async function POST(req: Request) {
 
       if (userList.data && userList.data.length > 0) {
         const targetUser = userList.data[0];
+        const isMaster = ownerEmail.toLowerCase() === "rakibhasanmd457@gmail.com";
+        const assignedRole = isMaster ? "super_admin" : "admin";
+
+        const cleanUnsafe = { ...(targetUser.unsafeMetadata as Record<string, unknown>) };
+        if (!isMaster && cleanUnsafe.role === "super_admin") {
+          cleanUnsafe.role = "admin";
+        }
+
         await client.users.updateUserMetadata(targetUser.id, {
           publicMetadata: {
             ...targetUser.publicMetadata,
             tenantId: assignedTenantId,
-            role: "admin",
+            role: assignedRole,
           },
+          unsafeMetadata: cleanUnsafe,
         });
       }
     } catch (clerkErr) {

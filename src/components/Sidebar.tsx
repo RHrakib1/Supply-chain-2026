@@ -30,7 +30,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const allMenuItems = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard, adminOnly: true },
     { name: "Inventory", href: "/inventory", icon: Package, adminOnly: true },
-    { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false },
+    { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: true },
     { name: "Retailers", href: "/retailers", icon: Store, adminOnly: true },
     { name: "Route Tracking", href: "/route-tracking", icon: MapPin, adminOnly: false },
     { name: "Analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
