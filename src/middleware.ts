@@ -9,12 +9,10 @@ const isPublicRoute = createRouteMatcher([
   '/api/public(.*)',
 ]);
 
-const isRestrictedAdminRoute = createRouteMatcher([
+const isAdminOnlyRoute = createRouteMatcher([
   '/',
   '/inventory',
   '/inventory/(.*)',
-  '/orders',
-  '/orders/(.*)',
   '/retailers',
   '/retailers/(.*)',
   '/analytics',
@@ -63,19 +61,27 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     if (primaryEmail !== MASTER_SUPER_ADMIN_EMAIL) {
-      return NextResponse.redirect(new URL("/inventory", req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
   }
 
-  // Extract user role from sessionClaims metadata if present
-  const role =
-    (sessionClaims?.metadata as Record<string, unknown>)?.role ||
+  // Extract user role strictly from Clerk publicMetadata (defaulting to 'user')
+  const role = (
     (sessionClaims?.publicMetadata as Record<string, unknown>)?.role ||
-    (sessionClaims?.unsafeMetadata as Record<string, unknown>)?.role;
+    (sessionClaims?.metadata as Record<string, unknown>)?.role ||
+    "user"
+  ) as string;
 
-  // Redirect normal 'user' role attempting to open restricted admin or super-admin pages to /route-tracking
-  if (role === "user" && (isRestrictedAdminRoute(req) || isSuperAdminRoute(req))) {
-    return NextResponse.redirect(new URL("/route-tracking", req.url));
+  // 1. Role 'user' or 'driver': Blocked from admin & super-admin pages, strictly redirected to /route-tracking
+  if ((role === "user" || role === "driver") && !req.nextUrl.pathname.startsWith("/route-tracking")) {
+    if (!isPublicRoute(req)) {
+      return NextResponse.redirect(new URL("/route-tracking", req.url));
+    }
+  }
+
+  // 2. Role 'retailer' or 'dealer': Allowed access to /orders and /route-tracking, blocked from admin/super-admin pages
+  if ((role === "retailer" || role === "dealer") && (isAdminOnlyRoute(req) || isSuperAdminRoute(req))) {
+    return NextResponse.redirect(new URL("/orders", req.url));
   }
 });
 

@@ -37,7 +37,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   // Filter menu items based on user role
-  const visibleMenuItems = allMenuItems.filter(item => isAdmin || !item.adminOnly);
+  const visibleMenuItems = allMenuItems.filter(item => {
+    if (isAdmin) return true;
+    if (userRole === "retailer" || userRole === "dealer") {
+      return item.href === "/orders" || item.href === "/route-tracking";
+    }
+    return item.href === "/route-tracking";
+  });
 
   return (
     <>
