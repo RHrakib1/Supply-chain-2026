@@ -7,15 +7,15 @@ import InventoryView from "@/components/InventoryView";
 
 export default function InventoryPage() {
   const router = useRouter();
-  const { inventory, searchQuery, restockSku, setIsModalOpen, isAdmin } = useDashboard();
+  const { inventory, searchQuery, restockSku, setIsModalOpen, userRole } = useDashboard();
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (userRole === "driver" || userRole === "retailer") {
       router.replace("/route-tracking");
     }
-  }, [isAdmin, router]);
+  }, [userRole, router]);
 
-  if (!isAdmin) return null;
+  if (userRole === "driver" || userRole === "retailer") return null;
 
   return (
     <InventoryView 

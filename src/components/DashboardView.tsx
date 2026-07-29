@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   TrendingUp, 
-  Truck, 
   Package, 
   ShoppingCart, 
   CheckCircle, 
@@ -13,7 +12,14 @@ import {
   Store,
   Clock,
   Activity,
-  BarChart3
+  BarChart3,
+  Crown,
+  Building2,
+  Users,
+  DollarSign,
+  Plus,
+  ShieldCheck,
+  Layers
 } from "lucide-react";
 import { 
   AreaChart, 
@@ -24,32 +30,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from "recharts";
-import { useDashboard } from "@/context/DashboardContext";
-
-interface InventoryItem {
-  sku: string;
-  name: string;
-  category: string;
-  location: string;
-  qty: number;
-  minRequired: number;
-  unitPrice: number;
-  status: "In Stock" | "Low Stock" | "Out of Stock";
-}
-
-interface Order {
-  id: string;
-  retailer: string;
-  location: string;
-  date: string;
-  items: string;
-  qty: number;
-  total: number;
-  status: "Pending" | "Processing" | "In Transit" | "Delivered" | "Cancelled";
-  carrier: string;
-  trackingNum: string;
-  eta: string;
-}
+import { useDashboard, Order, InventoryItem } from "@/context/DashboardContext";
 
 interface DashboardViewProps {
   inventory: InventoryItem[];
@@ -59,40 +40,57 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ onOpenRestockModal, onNavigate }: DashboardViewProps) {
-  const { inventory, orders, retailers, activityLogs, clients, triggerUpgradeModal } = useDashboard();
+  const { 
+    userRole,
+    isSuperAdmin,
+    activeTenantId,
+    inventory, 
+    orders, 
+    retailers, 
+    activityLogs, 
+    clients, 
+    triggerUpgradeModal,
+    setIsOrderModalOpen,
+    setIsModalOpen
+  } = useDashboard();
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const activeClient = clients[0] || { name: "Apex Logistics", plan: "Professional" };
-  const remainingDays = 5; // Subscription remaining days calculation (remaining <= 7 triggers warning)
+  const remainingDays = 5;
 
   const triggerRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 850);
   };
 
-  // 1. Real-Time Summary Cards derived directly from live Supabase tables
-  const metrics = useMemo(() => {
-    // Total Inventory Volume: sum of qty across all inventory items
+  // --- CLIENT ADMIN METRICS ---
+  const clientAdminMetrics = useMemo(() => {
     const totalInventoryVolume = inventory.reduce((sum, item) => sum + item.qty, 0);
-    
-    // Low Stock Items count: qty <= minRequired or status !== "In Stock"
     const lowStockCount = inventory.filter(item => item.qty <= item.minRequired || item.status !== "In Stock").length;
-    
-    // Pending Shipments count: status === "Pending" || "Processing"
     const pendingOrdersCount = orders.filter(o => o.status === "Pending" || o.status === "Processing").length;
-    
-    // Active Retailers count: status === "Active"
     const activeRetailersCount = retailers.filter(r => r.status === "Active").length;
+    const totalRevenue = orders.filter(o => o.status !== "Cancelled").reduce((sum, o) => sum + o.total, 0);
 
     return {
       totalInventoryVolume,
       lowStockCount,
       pendingOrdersCount,
       activeRetailersCount,
+      totalRevenue
     };
   }, [inventory, orders, retailers]);
 
-  // 2. Calculate Order Trends Chart Data from Real Order Dates & Total Values
+  // --- SUPER ADMIN SAAS METRICS ---
+  const saasMetrics = useMemo(() => {
+    const totalClients = clients.length;
+    const activeClients = clients.filter(c => c.status === "Active").length;
+    const totalMrr = clients.filter(c => c.status === "Active").reduce((sum, c) => sum + c.mrr, 0);
+    const totalSeats = clients.reduce((sum, c) => sum + c.maxUsers, 0);
+    return { totalClients, activeClients, totalMrr, totalSeats };
+  }, [clients]);
+
+  // --- SALES TREND CHART DATA ---
   const orderTrendsData = useMemo(() => {
     const dateMap: Record<string, { date: string; revenue: number; ordersCount: number }> = {};
     
@@ -107,7 +105,6 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
 
     const sortedData = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
     
-    // Format date for chart axis label (e.g. "Jul 24")
     return sortedData.map(d => {
       const parts = d.date.split("-");
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -121,21 +118,339 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
     });
   }, [orders]);
 
-  // Alert stock items listing
   const alertItems = useMemo(() => {
     return inventory
       .filter(item => item.qty <= item.minRequired || item.status !== "In Stock")
       .slice(0, 4);
   }, [inventory]);
 
-  // Recent shipments table listing
-  const recentShipments = useMemo(() => {
-    return orders.slice(0, 5);
-  }, [orders]);
+  // =========================================================================
+  // VIEW 1: SUPER ADMIN SAAS GROWTH COMMAND CENTER (Rakib)
+  // =========================================================================
+  if (isSuperAdmin) {
+    return (
+      <div className="space-y-8">
+        {/* Super Admin Welcome Banner */}
+        <div className="glass-panel p-8 rounded-3xl border border-amber-500/20 bg-gradient-to-r from-slate-950 via-amber-950/20 to-slate-950 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-amber-400 mb-2">
+                <Crown className="h-4 w-4 text-amber-400 animate-pulse" />
+                <span>SaaS Governance &amp; Executive Command Hub</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                LogiLink Platform Control Center
+              </h1>
+              <p className="text-slate-400 mt-2 text-sm max-w-2xl">
+                Global multi-tenant platform metrics, MRR revenue growth analytics, and tenant business provisioning.
+              </p>
+            </div>
 
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => onNavigate("Analytics")}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-extrabold text-xs hover:bg-amber-500/20 transition-all"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>MRR Analytics</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate("Analytics")}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 hover:scale-[1.02] transition-all cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Onboard New Tenant</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 SaaS Executive Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+              <span>SaaS Monthly Revenue</span>
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <DollarSign className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white">৳ {saasMetrics.totalMrr.toLocaleString()}</span>
+              <span className="text-xs font-bold text-emerald-400">/mo</span>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">Active subscription MRR</div>
+          </div>
+
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+              <span>Active Tenant Clients</span>
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <Building2 className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white">{saasMetrics.totalClients}</span>
+              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">{saasMetrics.activeClients} Active</span>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">Provisioned SaaS businesses</div>
+          </div>
+
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+              <span>Provisioned User Seats</span>
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <Users className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white">{saasMetrics.totalSeats}</span>
+              <span className="text-xs font-bold text-slate-400">max capacity</span>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">Across all tenant accounts</div>
+          </div>
+
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+              <span>Platform System Uptime</span>
+              <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-emerald-400">99.98%</span>
+            </div>
+            <div className="mt-2 text-xs text-emerald-400 font-bold flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" /> Supabase Clusters Healthy
+            </div>
+          </div>
+        </div>
+
+        {/* Tenant Directory Summary Table */}
+        <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-black text-white flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-amber-400" />
+              <span>Registered Tenant Businesses</span>
+            </h2>
+            <button
+              onClick={() => onNavigate("Analytics")}
+              className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1"
+            >
+              Full Governance Portal <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider bg-slate-950/30">
+                  <th className="py-3 px-4">Tenant ID &amp; Name</th>
+                  <th className="py-3 px-4">Owner Email</th>
+                  <th className="py-3 px-4">Subscription Plan</th>
+                  <th className="py-3 px-4">Seats</th>
+                  <th className="py-3 px-4">MRR (BDT)</th>
+                  <th className="py-3 px-4 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {clients.map(c => (
+                  <tr key={c.id} className="hover:bg-white/5">
+                    <td className="py-3 px-4 font-bold text-white font-mono">{c.id} • {c.name}</td>
+                    <td className="py-3 px-4 text-slate-300">{c.ownerEmail}</td>
+                    <td className="py-3 px-4 text-amber-400 font-extrabold">{c.plan}</td>
+                    <td className="py-3 px-4 text-slate-400">{c.activeUsers} / {c.maxUsers}</td>
+                    <td className="py-3 px-4 font-extrabold text-emerald-400">৳ {c.mrr.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black">
+                        {c.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 2: WAREHOUSE MANAGER OPERATIONAL VIEW (role === 'warehouse')
+  // =========================================================================
+  if (userRole === "warehouse") {
+    return (
+      <div className="space-y-8">
+        <div className="glass-panel p-6 rounded-3xl border border-indigo-500/20 bg-slate-950 shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-400 uppercase tracking-wider">
+                <Layers className="h-4 w-4" />
+                <span>Warehouse Logistics Station</span>
+              </div>
+              <h1 className="text-3xl font-black text-white mt-1">Pack &amp; Stock Fulfillment Queue</h1>
+              <p className="text-xs text-slate-400 mt-1">Tenant ID: {activeTenantId || "CLI-101"} • Warehouse Operations</p>
+            </div>
+
+            <button
+              onClick={() => onNavigate("Inventory")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md"
+            >
+              <Package className="h-4 w-4" />
+              <span>Full Inventory Table</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Warehouse Operational Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="glass-panel p-5 rounded-2xl border border-white/10">
+            <span className="text-xs text-slate-400 font-bold block">Pending Dispatch Orders</span>
+            <span className="text-3xl font-black text-amber-300 mt-2 block">{clientAdminMetrics.pendingOrdersCount}</span>
+            <p className="text-xs text-slate-500 mt-1">Awaiting packing &amp; invoice attachment</p>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl border border-white/10">
+            <span className="text-xs text-slate-400 font-bold block">Low Stock SKU Warnings</span>
+            <span className="text-3xl font-black text-rose-400 mt-2 block">{clientAdminMetrics.lowStockCount}</span>
+            <p className="text-xs text-slate-500 mt-1">Requires immediate supplier purchase order</p>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl border border-white/10">
+            <span className="text-xs text-slate-400 font-bold block">Active Stock Catalog</span>
+            <span className="text-3xl font-black text-white mt-2 block">{inventory.length} SKUs</span>
+            <p className="text-xs text-slate-500 mt-1">{clientAdminMetrics.totalInventoryVolume.toLocaleString()} total units</p>
+          </div>
+        </div>
+
+        {/* Low Stock Items List */}
+        <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+          <h2 className="text-base font-black text-white flex items-center gap-2">
+            <Package className="h-5 w-5 text-rose-400" />
+            <span>Low Stock Reorder Alerts</span>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {alertItems.map(item => (
+              <div key={item.sku} className="p-4 bg-slate-900 border border-white/10 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-mono font-bold text-indigo-400">{item.sku}</span>
+                  <h3 className="text-sm font-bold text-white mt-0.5">{item.name}</h3>
+                  <p className="text-xs text-slate-400">Qty: {item.qty} | Safety Min: {item.minRequired}</p>
+                </div>
+                <button
+                  onClick={onOpenRestockModal}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md"
+                >
+                  Restock
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 3: RETAILER / WHOLESALER PORTAL (role === 'retailer')
+  // =========================================================================
+  if (userRole === "retailer") {
+    const retailerOrders = orders.slice(0, 5);
+
+    return (
+      <div className="space-y-8">
+        <div className="glass-panel p-6 rounded-3xl border border-indigo-500/20 bg-slate-950 shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-400 uppercase tracking-wider">
+                <Store className="h-4 w-4" />
+                <span>B2B Retailer Order Portal</span>
+              </div>
+              <h1 className="text-3xl font-black text-white mt-1">Purchasing &amp; Credit Dashboard</h1>
+              <p className="text-xs text-slate-400 mt-1">View order history, track shipments, and place re-orders</p>
+            </div>
+
+            <button
+              onClick={() => setIsOrderModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-lg cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Place New Order</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Retailer Financial Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="glass-panel p-5 rounded-2xl border border-white/10">
+            <span className="text-xs text-slate-400 font-bold block">Purchased Volume</span>
+            <span className="text-3xl font-black text-white mt-2 block">৳ {clientAdminMetrics.totalRevenue.toLocaleString()}</span>
+            <p className="text-xs text-emerald-400 font-bold mt-1">Active Partnership Account</p>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl border border-white/10">
+            <span className="text-xs text-slate-400 font-bold block">Assigned Credit Limit</span>
+            <span className="text-3xl font-black text-indigo-400 mt-2 block">৳ 1,50,000</span>
+            <p className="text-xs text-slate-500 mt-1">Net 30 Payment Terms</p>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl border border-white/10">
+            <span className="text-xs text-slate-400 font-bold block">Active Orders in Transit</span>
+            <span className="text-3xl font-black text-blue-400 mt-2 block">
+              {orders.filter(o => o.status === "In Transit").length}
+            </span>
+            <p className="text-xs text-slate-500 mt-1">Steadfast / Pathao Telemetry</p>
+          </div>
+        </div>
+
+        {/* Retailer Recent Orders */}
+        <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+          <h2 className="text-base font-black text-white flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-indigo-400" />
+            <span>My Recent Purchase Orders</span>
+          </h2>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider bg-slate-950/30">
+                  <th className="py-3 px-4">Order ID &amp; Date</th>
+                  <th className="py-3 px-4">Items Summary</th>
+                  <th className="py-3 px-4">Total Value</th>
+                  <th className="py-3 px-4">Courier Carrier</th>
+                  <th className="py-3 px-4 text-right">Fulfillment Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {retailerOrders.map(o => (
+                  <tr key={o.id} className="hover:bg-white/5">
+                    <td className="py-3 px-4 font-bold text-white font-mono">{o.id} <span className="block text-[10px] text-slate-500">{o.date}</span></td>
+                    <td className="py-3 px-4 text-slate-200">{o.items}</td>
+                    <td className="py-3 px-4 font-black text-indigo-400">৳ {o.total.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-slate-400 font-mono">{o.carrier} ({o.trackingNum})</td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold">
+                        {o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 4: DEFAULT CLIENT ADMIN COMMERCIAL COMMAND CENTER (role === 'admin')
+  // =========================================================================
   return (
     <div className="space-y-8">
-      {/* 3. Subscription Expiry Warning Banner (Renders if remainingDays <= 7) */}
+      {/* Expiry Warning Banner */}
       {remainingDays <= 7 && (
         <div className="glass-panel p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-amber-500/5 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
@@ -147,36 +462,50 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
                 Subscription Expiry Warning
               </h4>
               <p className="text-xs text-slate-200 mt-0.5">
-                Your <strong className="text-white">{activeClient.plan || "Professional"} Plan</strong> subscription expires in <strong className="text-amber-400 font-bold">{remainingDays} days</strong>. Please renew to avoid workspace service locks.
+                Your <strong className="text-white">{activeClient.plan || "Professional"} Plan</strong> subscription expires in <strong className="text-amber-400 font-bold">{remainingDays} days</strong>.
               </p>
             </div>
           </div>
 
           <button
             onClick={() => triggerUpgradeModal("Subscription Renewal Required")}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-xs font-black shadow-md hover:scale-[1.02] active:scale-95 transition-all self-start sm:self-auto flex-shrink-0"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-xs font-black shadow-md hover:scale-[1.02] active:scale-95 transition-all self-start sm:self-auto flex-shrink-0 cursor-pointer"
           >
             Renew Subscription
           </button>
         </div>
       )}
 
-      {/* Welcome Header */}
+      {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Supply Chain Command Center</h1>
           <p className="text-slate-400 mt-1.5 text-sm sm:text-base">
-            Real-time operations dashboard, live Supabase telemetry metrics, and sales trend analytics.
+            Omnichannel logistics dashboard, live telemetry metrics, and multi-tenant fulfillment control.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 bg-slate-900/80 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Supabase Live Sync
-          </span>
+
+        {/* Controls: Quick Action Buttons */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setIsOrderModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-extrabold bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Process Order</span>
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-extrabold bg-white/5 border border-white/10 text-slate-300 hover:text-white px-3.5 py-2.5 rounded-xl transition-all cursor-pointer"
+          >
+            <Plus className="h-4 w-4 text-indigo-400" />
+            <span>Add SKU</span>
+          </button>
+
           <button 
             onClick={triggerRefresh}
-            className="flex items-center gap-2 text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 px-4 py-2 rounded-xl transition-all duration-300"
+            className="flex items-center gap-2 text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 px-3.5 py-2.5 rounded-xl transition-all duration-300 cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
@@ -184,118 +513,105 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
         </div>
       </div>
 
-      {/* 1. Real-Time Summary Cards Grid (Calculated directly from Supabase Tables) */}
+      {/* 4 Commercial Client Admin Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Total Inventory Volume */}
         <div 
           onClick={() => onNavigate("Inventory")}
-          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-indigo-600/5 border border-white/10"
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg border border-white/10"
         >
-          <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Total Inventory Volume</span>
+            <span className="text-sm font-medium text-slate-400">Total Inventory Stock</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-black/30">
               <Package className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.totalInventoryVolume.toLocaleString()}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{clientAdminMetrics.totalInventoryVolume.toLocaleString()}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-emerald-500/10 text-emerald-400">
-              <TrendingUp className="h-3 w-3" />
-              Units
+              <TrendingUp className="h-3 w-3" /> Units
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">Across {inventory.length} active SKUs</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Across {inventory.length} catalog lines</div>
         </div>
 
-        {/* Low Stock Items Count (< min_required) */}
+        {/* Low Stock Alerts */}
         <div 
           onClick={() => onNavigate("Inventory")}
-          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-rose-600/5 border border-white/10"
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg border border-white/10"
         >
-          <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-rose-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Low Stock Items</span>
+            <span className="text-sm font-medium text-slate-400">Low Stock Warnings</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg shadow-black/30">
               <Package className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.lowStockCount}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{clientAdminMetrics.lowStockCount}</span>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 ${
-              metrics.lowStockCount === 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+              clientAdminMetrics.lowStockCount === 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
             }`}>
-              {metrics.lowStockCount === 0 ? <CheckCircle className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
-              {metrics.lowStockCount === 0 ? "Optimal" : `&lt; min_req`}
+              {clientAdminMetrics.lowStockCount === 0 ? <CheckCircle className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+              {clientAdminMetrics.lowStockCount === 0 ? "Optimal" : `Reorder`}
             </span>
           </div>
           <div className="mt-2 text-xs text-slate-500 font-medium">Requires replenishment</div>
         </div>
 
-        {/* Pending Shipments Count */}
+        {/* Pending Orders */}
         <div 
           onClick={() => onNavigate("Orders")}
-          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-amber-600/5 border border-white/10"
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg border border-white/10"
         >
-          <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Pending Shipments</span>
+            <span className="text-sm font-medium text-slate-400">Pending Courier Action</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-black/30">
               <ShoppingCart className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.pendingOrdersCount}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{clientAdminMetrics.pendingOrdersCount}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-amber-500/10 text-amber-400">
-              <Clock className="h-3 w-3" />
-              In Queue
+              <Clock className="h-3 w-3" /> In Queue
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">Pending or processing status</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Awaiting courier dispatch</div>
         </div>
 
-        {/* Active Retailers Count */}
+        {/* Active Retailers */}
         <div 
           onClick={() => onNavigate("Retailers")}
-          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg shadow-emerald-600/5 border border-white/10"
+          className="glass-panel glass-panel-hover rounded-2xl p-6 transition-all duration-300 relative group overflow-hidden cursor-pointer shadow-lg border border-white/10"
         >
-          <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Active Retailers</span>
+            <span className="text-sm font-medium text-slate-400">Active Dealer Network</span>
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg shadow-black/30">
               <Store className="h-5 w-5 text-white" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">{metrics.activeRetailersCount}</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">{clientAdminMetrics.activeRetailersCount}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 bg-emerald-500/10 text-emerald-400">
-              <CheckCircle className="h-3 w-3" />
-              Verified
+              <CheckCircle className="h-3 w-3" /> Active
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">Out of {retailers.length} total partner hubs</div>
+          <div className="mt-2 text-xs text-slate-500 font-medium">Out of {retailers.length} total hubs</div>
         </div>
 
       </div>
 
-      {/* 2. Interactive Order Trends Chart (Calculated from Real Order Dates & Totals) */}
+      {/* Interactive Sales Chart */}
       <div className="glass-panel rounded-2xl border border-white/10 p-6 shadow-xl bg-slate-950/40">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-indigo-400" />
-              Live Sales & Order Revenue Trends
+              Live Sales &amp; Order Revenue Velocity
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Real order volumes and dollar values queried directly from Supabase <code className="text-indigo-300">orders</code> table
+              Real order volumes and dollar values for tenant <code className="text-indigo-300">{activeTenantId || "CLI-101"}</code>
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 bg-slate-900 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
-              {orders.length} Total Orders Logged
-            </span>
           </div>
         </div>
 
@@ -311,7 +627,7 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
                 <XAxis dataKey="displayDate" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(val) => `$${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`} />
+                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(val) => `৳${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#090d16",
@@ -321,7 +637,7 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
                     fontSize: "12px"
                   }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`৳ ${Number(value ?? 0).toLocaleString()}`, "Order Volume"]}
+                  formatter={(value: any) => [`৳ ${Number(value ?? 0).toLocaleString()}`, "Revenue"]}
                 />
                 <Area 
                   type="monotone" 
@@ -342,82 +658,38 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
         </div>
       </div>
 
-      {/* Main Content Grid: Map & Stock Alerts */}
+      {/* Freight Routes & Stock Alerts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Animated Map Widget */}
         <div className="lg:col-span-2 glass-panel rounded-2xl border border-white/10 p-6 flex flex-col h-[400px]">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-indigo-400" />
-                Active Distribution Routes
+                Live Freight Distribution Corridors
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Real-time status of critical freight corridors</p>
+              <p className="text-xs text-slate-400 mt-0.5">Real-time status of delivery logistics</p>
             </div>
             <button 
               onClick={() => onNavigate("Route Tracking")} 
-              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors focus:outline-none"
+              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
             >
-              Expand Map
-              <ChevronRight className="h-3 w-3" />
+              Expand Map <ChevronRight className="h-3 w-3" />
             </button>
           </div>
           
           <div className="flex-1 w-full bg-slate-950/45 rounded-xl border border-white/5 relative overflow-hidden flex items-center justify-center p-4">
-            <svg 
-              className="w-full h-full max-h-[300px]"
-              viewBox="0 0 500 250" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Background dots styling */}
-              <circle cx="100" cy="50" r="3" fill="rgba(255,255,255,0.08)" />
-              <circle cx="120" cy="70" r="3" fill="rgba(255,255,255,0.08)" />
-              <circle cx="140" cy="90" r="3" fill="rgba(255,255,255,0.08)" />
-              <circle cx="200" cy="130" r="3" fill="rgba(255,255,255,0.08)" />
-              <circle cx="250" cy="110" r="3" fill="rgba(255,255,255,0.08)" />
-              <circle cx="320" cy="80" r="3" fill="rgba(255,255,255,0.08)" />
-              
-              {/* Route Alpha */}
-              <path d="M 60,180 Q 150,90 280,110 T 440,70" stroke="rgba(99, 102, 241, 0.2)" strokeWidth="3" strokeLinecap="round" />
+            <svg className="w-full h-full max-h-[300px]" viewBox="0 0 500 250" fill="none">
               <path d="M 60,180 Q 150,90 280,110 T 440,70" stroke="rgba(99, 102, 241, 0.6)" strokeWidth="2" strokeLinecap="round" className="animate-dash-line" />
-
-              {/* Route Beta */}
-              <path d="M 60,180 Q 180,210 320,160 T 420,180" stroke="rgba(236, 72, 153, 0.15)" strokeWidth="3" strokeLinecap="round" />
               <path d="M 60,180 Q 180,210 320,160 T 420,180" stroke="rgba(236, 72, 153, 0.5)" strokeWidth="2" strokeLinecap="round" className="animate-dash-line" />
-
-              {/* Nodes */}
-              <circle cx="60" cy="180" r="8" fill="#4f46e5" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+              <circle cx="60" cy="180" r="8" fill="#4f46e5" />
               <text x="50" y="200" fill="#a5b4fc" fontSize="8" fontWeight="bold">Central Hub</text>
-
-              <circle cx="280" cy="110" r="6" fill="#1e1b4b" stroke="#6366f1" strokeWidth="2" />
-              <circle cx="320" cy="160" r="6" fill="#1e1b4b" stroke="#ec4899" strokeWidth="2" />
-
-              <circle cx="440" cy="70" r="6" fill="#10b981" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
+              <circle cx="440" cy="70" r="6" fill="#10b981" />
               <text x="410" y="60" fill="#34d399" fontSize="8" fontWeight="bold">Walmart East</text>
-
-              <circle cx="420" cy="180" r="6" fill="#f59e0b" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
-              <text x="400" y="195" fill="#fbbf24" fontSize="8" fontWeight="bold">Target Dist</text>
-
-              {/* Truck pulses */}
-              <g transform="translate(195, 114)">
-                <circle cx="0" cy="0" r="8" fill="#6366f1" className="animate-pulse-dot opacity-40" />
-                <circle cx="0" cy="0" r="4" fill="#818cf8" />
-              </g>
-              <g transform="translate(260, 180)">
-                <circle cx="0" cy="0" r="8" fill="#ec4899" className="animate-pulse-dot opacity-40" />
-                <circle cx="0" cy="0" r="4" fill="#f472b6" />
-              </g>
             </svg>
-            
-            <div className="absolute bottom-3 left-3 flex flex-wrap gap-2.5 bg-slate-900/80 border border-white/5 px-2 py-1 rounded-lg text-[9px] text-slate-350">
-              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span> Route Alpha</span>
-              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-pink-500"></span> Route Beta</span>
-            </div>
           </div>
         </div>
 
-        {/* Stock Alert Summary Panel */}
+        {/* Stock Alert Summary */}
         <div className="glass-panel rounded-2xl border border-white/10 p-6 flex flex-col h-[400px]">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -425,40 +697,26 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
                 <Package className="h-5 w-5 text-rose-400" />
                 Inventory Alerts
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Items currently below critical levels</p>
+              <p className="text-xs text-slate-400 mt-0.5">Critical stock reorder warnings</p>
             </div>
             <button 
               onClick={() => onNavigate("Inventory")}
-              className="text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors focus:outline-none"
+              className="text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1"
             >
-              Manage Stock
-              <ChevronRight className="h-3 w-3" />
+              Manage Stock <ChevronRight className="h-3 w-3" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-1">
             {alertItems.length > 0 ? (
               alertItems.map((item) => (
-                <div 
-                  key={item.sku} 
-                  className={`p-3 border rounded-xl flex items-center justify-between ${
-                    item.status === "Out of Stock" 
-                      ? "bg-rose-500/10 border-rose-500/20" 
-                      : "bg-amber-500/10 border-amber-500/20"
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">{item.sku}</h3>
-                    <p className="text-sm font-semibold text-slate-200 mt-0.5 truncate">{item.name}</p>
-                    <p className={`text-xs mt-1 ${item.status === "Out of Stock" ? "text-rose-400" : "text-amber-400"}`}>
-                      Stock: {item.qty} units | Min Req: {item.minRequired}
-                    </p>
+                <div key={item.sku} className="p-3 border border-rose-500/20 bg-rose-500/10 rounded-xl flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-white uppercase">{item.sku}</h3>
+                    <p className="text-xs font-semibold text-slate-200 truncate">{item.name}</p>
+                    <p className="text-[10px] text-rose-400 mt-0.5">Stock: {item.qty} units | Min: {item.minRequired}</p>
                   </div>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${
-                    item.status === "Out of Stock"
-                      ? "bg-rose-500/20 text-rose-350 border-rose-500/30"
-                      : "bg-amber-500/20 text-amber-350 border-amber-500/30"
-                  }`}>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
                     {item.status}
                   </span>
                 </div>
@@ -466,150 +724,32 @@ export default function DashboardView({ onOpenRestockModal, onNavigate }: Dashbo
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center text-slate-500">
                 <CheckCircle className="h-8 w-8 text-emerald-500/40 mb-2" />
-                <p className="text-xs font-bold">All stock levels are optimal</p>
+                <p className="text-xs font-bold">All stock levels optimal</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Bottom Grid: Recent Shipments & Live Recent Activity Log */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Shipments Table */}
-        <div className="lg:col-span-2 glass-panel rounded-2xl border border-white/10 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Truck className="h-5 w-5 text-indigo-400" />
-                Active Freight Movements
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Latest shipments and their transit updates</p>
-            </div>
-            <button 
-              onClick={() => onNavigate("Orders")}
-              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors focus:outline-none"
-            >
-              View All Orders
-              <ChevronRight className="h-3 w-3" />
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-white/10 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                  <th className="pb-3 pr-4">Shipment ID</th>
-                  <th className="pb-3 px-4">Destination</th>
-                  <th className="pb-3 px-4">Status</th>
-                  <th className="pb-3 pl-4 text-right">ETA</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {recentShipments.map((s) => (
-                  <tr key={s.id} className="group hover:bg-white/5 transition-colors cursor-pointer" onClick={() => onNavigate("Orders")}>
-                    <td className="py-3.5 pr-4 font-bold text-white tracking-wider text-xs">
-                      {s.id}
-                      <span className="block font-medium text-[10px] text-indigo-400 mt-0.5">{s.carrier}</span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-200 font-semibold">{s.retailer}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        s.status === "Delivered" 
-                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                          : s.status === "In Transit"
-                          ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                          : s.status === "Processing"
-                          ? "bg-purple-500/10 border-purple-500/20 text-purple-400"
-                          : s.status === "Cancelled"
-                          ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                          : "bg-slate-500/10 border-slate-500/20 text-slate-400"
-                      }`}>
-                        {s.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 pl-4 text-right text-slate-350 font-medium">{s.eta}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* 3. Live Recent Activity Log Feed */}
-        <div className="glass-panel rounded-2xl border border-white/10 p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-indigo-400" />
-                  Recent Activity Log
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Real-time audit log of inventory & freight events</p>
+      {/* Activity Log */}
+      <div className="glass-panel rounded-2xl border border-white/10 p-6">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+          <Activity className="h-5 w-5 text-indigo-400" />
+          Recent Activity &amp; Telemetry Feed
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {activityLogs.map(log => (
+            <div key={log.id} className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-xs space-y-1">
+              <div className="flex justify-between items-center text-slate-400 text-[10px]">
+                <span className="uppercase font-bold text-indigo-400">{log.type}</span>
+                <span>{log.timestamp}</span>
               </div>
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <h3 className="font-bold text-white">{log.title}</h3>
+              <p className="text-slate-400 text-[11px] leading-tight">{log.description}</p>
             </div>
-
-            <div className="mt-4 space-y-3 max-h-[290px] overflow-y-auto pr-1">
-              {activityLogs.length > 0 ? (
-                activityLogs.map((log) => {
-                  const getLogStyle = (type: string) => {
-                    switch (type) {
-                      case "inventory":
-                        return { icon: Package, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
-                      case "order":
-                        return { icon: ShoppingCart, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" };
-                      case "retailer":
-                        return { icon: Store, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
-                      default:
-                        return { icon: Activity, color: "text-slate-400 bg-slate-500/10 border-slate-500/20" };
-                    }
-                  };
-
-                  const logConfig = getLogStyle(log.type);
-                  const LogIcon = logConfig.icon;
-
-                  return (
-                    <div 
-                      key={log.id} 
-                      className="p-3 rounded-xl bg-slate-900/40 border border-white/5 hover:border-white/10 transition-all flex items-start gap-3"
-                    >
-                      <div className={`p-2 rounded-lg border flex-shrink-0 mt-0.5 ${logConfig.color}`}>
-                        <LogIcon className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <h3 className="text-xs font-bold text-white truncate">{log.title}</h3>
-                          <span className="text-[9px] font-semibold text-slate-500 flex items-center gap-1 flex-shrink-0">
-                            <Clock className="h-2.5 w-2.5" />
-                            {log.timestamp}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{log.description}</p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-xs text-slate-500 text-center py-8">No recent activity logged.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-400 bg-slate-950/20 p-2.5 rounded-xl border border-white/5">
-            <div>
-              <span className="font-semibold text-white block">Supabase Realtime Feed</span>
-              <span className="text-[10px] text-indigo-400 font-medium">Listening to postgres_changes</span>
-            </div>
-            <button
-              onClick={onOpenRestockModal}
-              className="text-[10px] font-bold text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2.5 py-1 rounded-lg border border-indigo-500/30 transition-all"
-            >
-              + Quick Restock
-            </button>
-          </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
-

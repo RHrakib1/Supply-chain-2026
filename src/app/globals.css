@@ -84,3 +84,27 @@ body {
   stroke-dasharray: 8, 4;
   animation: dash 10s linear infinite;
 }
+
+/* Universal Print Engine Rules */
+@media print {
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+  }
+  aside, nav, header, button, .no-print {
+    display: none !important;
+  }
+  .print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

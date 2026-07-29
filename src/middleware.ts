@@ -35,42 +35,48 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(signInUrl);
   }
 
+  // Extract user primary email
+  let primaryEmail = (
+    (sessionClaims as Record<string, unknown>)?.email ||
+    (sessionClaims as Record<string, unknown>)?.primaryEmail ||
+    (sessionClaims as Record<string, unknown>)?.email_address ||
+    ""
+  ) as string;
+
+  if (userId && !primaryEmail) {
+    try {
+      const client = await clerkClient();
+      const user = await client.users.getUser(userId);
+      primaryEmail = (
+        user.emailAddresses.find(e => e.id === user.primaryEmailAddressId)?.emailAddress ||
+        user.emailAddresses[0]?.emailAddress ||
+        ""
+      ).toLowerCase();
+    } catch (err) {
+      console.warn("Notice fetching Clerk user in middleware:", err);
+    }
+  } else {
+    primaryEmail = primaryEmail.toLowerCase();
+  }
+
+  const isMasterSuperAdmin = primaryEmail === MASTER_SUPER_ADMIN_EMAIL;
+
   // Strict Master Super Admin Email Protection for /super-admin
   if (userId && isSuperAdminRoute(req)) {
-    let primaryEmail = (
-      (sessionClaims as Record<string, unknown>)?.email ||
-      (sessionClaims as Record<string, unknown>)?.primaryEmail ||
-      (sessionClaims as Record<string, unknown>)?.email_address ||
-      ""
-    ) as string;
-
-    if (!primaryEmail) {
-      try {
-        const client = await clerkClient();
-        const user = await client.users.getUser(userId);
-        primaryEmail = (
-          user.emailAddresses.find(e => e.id === user.primaryEmailAddressId)?.emailAddress ||
-          user.emailAddresses[0]?.emailAddress ||
-          ""
-        ).toLowerCase();
-      } catch (err) {
-        console.warn("Notice fetching Clerk user in middleware:", err);
-      }
-    } else {
-      primaryEmail = primaryEmail.toLowerCase();
-    }
-
-    if (primaryEmail !== MASTER_SUPER_ADMIN_EMAIL) {
+    if (!isMasterSuperAdmin) {
       return NextResponse.redirect(new URL("/", req.url));
     }
   }
 
-  // Extract user role strictly from Clerk publicMetadata (defaulting to 'user')
-  const role = (
-    (sessionClaims?.publicMetadata as Record<string, unknown>)?.role ||
-    (sessionClaims?.metadata as Record<string, unknown>)?.role ||
-    "user"
-  ) as string;
+  // Extract user role from sessionClaims publicMetadata, unsafeMetadata, or metadata
+  const publicRole = (sessionClaims?.publicMetadata as Record<string, unknown>)?.role as string;
+  const unsafeRole = (sessionClaims?.unsafeMetadata as Record<string, unknown>)?.role as string;
+  const metadataRole = (sessionClaims?.metadata as Record<string, unknown>)?.role as string;
+
+  // Master email is always super_admin. For others, default to 'admin' unless explicitly 'user', 'driver', 'retailer', or 'dealer'
+  const role = isMasterSuperAdmin 
+    ? "super_admin" 
+    : (publicRole || unsafeRole || metadataRole || "admin");
 
   // 1. Role 'user' or 'driver': Blocked from admin & super-admin pages, strictly redirected to /route-tracking
   if ((role === "user" || role === "driver") && !req.nextUrl.pathname.startsWith("/route-tracking")) {

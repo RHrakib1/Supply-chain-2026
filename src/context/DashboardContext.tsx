@@ -25,7 +25,7 @@ import {
 } from "@/lib/supabaseService";
 import { supabase } from "@/lib/supabase";
 
-export type UserRole = "admin" | "user" | "super_admin" | "retailer" | "driver" | "dealer";
+export type UserRole = "admin" | "user" | "super_admin" | "retailer" | "driver" | "dealer" | "warehouse";
 
 // Types
 export interface InventoryItem {
@@ -65,6 +65,8 @@ export interface Retailer {
   onTimeRate: number;
   status: "Active" | "Under Review" | "Suspended";
   grade: "A+" | "A" | "B" | "C";
+  creditLimit?: number;
+  outstandingBalance?: number;
 }
 
 export interface FleetVehicle {
@@ -111,6 +113,7 @@ interface DashboardContextType {
   activeTenantId: string | null;
   setUserRole: (role: UserRole) => Promise<void>;
   inventory: InventoryItem[];
+  setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   orders: Order[];
   retailers: Retailer[];
   fleet: FleetVehicle[];
@@ -275,16 +278,20 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     return null;
   });
 
-  // Determine user role strictly from Clerk publicMetadata.role (defaulting to 'user' for unassigned sign-ups)
+  // Determine user role from Clerk publicMetadata, unsafeMetadata, or master super admin status
   const publicRole = (user?.publicMetadata?.role as UserRole);
-  const rawClerkRole: UserRole = publicRole || (user?.unsafeMetadata?.role as UserRole) || "user";
+  const unsafeRole = (user?.unsafeMetadata?.role as UserRole);
+
+  const rawClerkRole: UserRole = isMasterSuperAdmin
+    ? "super_admin"
+    : (publicRole || unsafeRole || "admin");
 
   let effectiveRole: UserRole = localRoleOverride !== null ? localRoleOverride : rawClerkRole;
 
   // STRICT MASTER EMAIL SUPER ADMIN LOCK: ONLY 'rakibhasanmd457@gmail.com' can hold super_admin
   if (!isMasterSuperAdmin) {
     if (effectiveRole === "super_admin") {
-      const fallbackRole = publicRole && publicRole !== "super_admin" ? publicRole : "user";
+      const fallbackRole = publicRole && publicRole !== "super_admin" ? publicRole : "admin";
       effectiveRole = fallbackRole;
     }
   }
@@ -757,6 +764,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       activeTenantId,
       setUserRole,
       inventory,
+      setInventory,
       orders,
       retailers,
       fleet,
@@ -803,6 +811,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     activeTenantId,
     setUserRole,
     inventory,
+    setInventory,
     orders,
     retailers,
     fleet,

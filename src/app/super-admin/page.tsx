@@ -23,6 +23,7 @@ import {
 import { useDashboard, ClientBusiness } from "@/context/DashboardContext";
 import { supabase } from "@/lib/supabase";
 import { insertSupabaseClient, isSupabaseConfigured } from "@/lib/supabaseService";
+import SaaSReceiptModal from "@/components/SaaSReceiptModal";
 
 export default function SuperAdminPage() {
   const router = useRouter();
@@ -41,6 +42,10 @@ export default function SuperAdminPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+
+  // SaaS Subscription Receipt Modal State
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [selectedReceiptClient, setSelectedReceiptClient] = useState<ClientBusiness | null>(null);
 
   // Form State for Client Onboarding
   const [name, setName] = useState("");
@@ -503,9 +508,20 @@ export default function SuperAdminPage() {
                     </div>
                   </td>
 
-                  {/* Actions: Toggle Access & Delete */}
+                  {/* Actions: Download Invoice, Toggle Access & Delete */}
                   <td className="py-4 pl-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedReceiptClient(client);
+                          setIsReceiptModalOpen(true);
+                        }}
+                        title="Download SaaS Subscription Invoice Receipt"
+                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition-all"
+                      >
+                        Receipt
+                      </button>
+
                       <button
                         onClick={() => toggleClientStatus(client.id)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${client.status === "Active"
@@ -513,7 +529,7 @@ export default function SuperAdminPage() {
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20"
                           }`}
                       >
-                        {client.status === "Active" ? "Suspend Access" : "Activate Access"}
+                        {client.status === "Active" ? "Suspend" : "Activate"}
                       </button>
 
                       <button
@@ -666,6 +682,13 @@ export default function SuperAdminPage() {
           </div>
         </div>
       )}
+
+      {/* SaaS Subscription Receipt Modal */}
+      <SaaSReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        client={selectedReceiptClient}
+      />
     </div>
   );
 }

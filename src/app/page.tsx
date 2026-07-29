@@ -7,15 +7,15 @@ import DashboardView from "@/components/DashboardView";
 
 export default function Home() {
   const router = useRouter();
-  const { inventory, orders, setIsModalOpen, isAdmin } = useDashboard();
+  const { inventory, orders, setIsModalOpen, userRole } = useDashboard();
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (userRole === "user" || userRole === "driver") {
       router.replace("/route-tracking");
     }
-  }, [isAdmin, router]);
+  }, [userRole, router]);
 
-  if (!isAdmin) return null;
+  if (userRole === "user" || userRole === "driver") return null;
 
   const handleNavigate = (tab: string) => {
     const routeMap: Record<string, string> = {

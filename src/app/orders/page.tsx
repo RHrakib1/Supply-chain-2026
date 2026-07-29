@@ -7,15 +7,15 @@ import OrdersView from "@/components/OrdersView";
 
 export default function OrdersPage() {
   const router = useRouter();
-  const { orders, searchQuery, updateOrderStatus, setIsOrderModalOpen, isAdmin } = useDashboard();
+  const { orders, searchQuery, updateOrderStatus, setIsOrderModalOpen, userRole } = useDashboard();
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (userRole === "user" || userRole === "driver") {
       router.replace("/route-tracking");
     }
-  }, [isAdmin, router]);
+  }, [userRole, router]);
 
-  if (!isAdmin) return null;
+  if (userRole === "user" || userRole === "driver") return null;
 
   return (
     <OrdersView 
