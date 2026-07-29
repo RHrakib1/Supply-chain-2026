@@ -115,6 +115,7 @@ interface DashboardContextType {
   fleet: FleetVehicle[];
   activityLogs: ActivityLog[];
   clients: ClientBusiness[];
+  setClients: React.Dispatch<React.SetStateAction<ClientBusiness[]>>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   isModalOpen: boolean;
@@ -303,7 +304,22 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(initialMockOrders);
   const [retailers, setRetailers] = useState<Retailer[]>(initialMockRetailers);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
-  const [clients, setClients] = useState<ClientBusiness[]>(initialMockClients);
+  const [clients, setClients] = useState<ClientBusiness[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("logilink_clients");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch (e) {
+          console.error("Error reading logilink_clients from localStorage:", e);
+        }
+      }
+    }
+    return initialMockClients;
+  });
 
   const triggerUpgradeModal = (reason: string) => {
     setUpgradeReason(reason);
@@ -381,8 +397,31 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (remoteCli && remoteCli.length > 0) {
-        setClients(remoteCli);
+        setClients(prev => {
+          const map = new Map<string, ClientBusiness>();
+          remoteCli.forEach(c => map.set(c.id, c));
+          prev.forEach(c => {
+            if (!map.has(c.id)) map.set(c.id, c);
+          });
+          const merged = Array.from(map.values());
+          if (typeof window !== "undefined") {
+            localStorage.setItem("logilink_clients", JSON.stringify(merged));
+          }
+          return merged;
+        });
         setIsSupabaseLive(true);
+      } else if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("logilink_clients");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setClients(parsed);
+            }
+          } catch (e) {
+            console.error("Error reading logilink_clients fallback:", e);
+          }
+        }
       }
     } catch (error) {
       console.error("Error loading Supabase data:", error);
@@ -400,22 +439,30 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     const newClient: ClientBusiness = {
       ...clientData,
-      id: `CLI-${100 + clients.length + 1}`,
+      id: `CLI-${Date.now().toString().slice(-4)}`,
       activeUsers: 1,
       mrr: planMrrMap[clientData.plan] || 95000,
       createdAt: new Date().toISOString().split("T")[0],
     };
 
-    setClients(prev => [newClient, ...prev]);
+    setClients(prev => {
+      const exists = prev.some(c => c.id === newClient.id || (c.name.toLowerCase() === newClient.name.toLowerCase() && c.ownerEmail.toLowerCase() === newClient.ownerEmail.toLowerCase()));
+      const updated = exists ? prev : [newClient, ...prev];
+      if (typeof window !== "undefined") {
+        localStorage.setItem("logilink_clients", JSON.stringify(updated));
+      }
+      return updated;
+    });
+
     addLog(`Client Onboarded: ${newClient.name}`, `Provisioned ${newClient.plan} account for ${newClient.ownerEmail}`, "retailer");
     addToast("success", "Client Account Provisioned", `${newClient.name} successfully added to SaaS engine`);
     await insertSupabaseClient(newClient);
     await loadSupabaseData(false);
-  }, [clients.length, addLog, addToast, loadSupabaseData]);
+  }, [addLog, addToast, loadSupabaseData]);
 
   const toggleClientStatus = useCallback((id: string) => {
-    setClients(prev =>
-      prev.map(client => {
+    setClients(prev => {
+      const updated = prev.map(client => {
         if (client.id === id) {
           const nextStatus: ClientBusiness["status"] = client.status === "Active" ? "Suspended" : "Active";
           addLog(`Client Access ${nextStatus}`, `${client.name} status updated to ${nextStatus}`, "retailer");
@@ -424,8 +471,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           return { ...client, status: nextStatus };
         }
         return client;
-      })
-    );
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("logilink_clients", JSON.stringify(updated));
+      }
+      return updated;
+    });
   }, [addLog, addToast]);
 
   const deleteClientBusiness = useCallback((id: string) => {
@@ -435,7 +486,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         addLog(`Client Account Deleted`, `Removed ${target.name} from SaaS platform`, "retailer");
         addToast("error", "Client Removed", `${target.name} account deleted`);
       }
-      return prev.filter(c => c.id !== id);
+      const updated = prev.filter(c => c.id !== id);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("logilink_clients", JSON.stringify(updated));
+      }
+      return updated;
     });
     deleteSupabaseClient(id);
   }, [addLog, addToast]);
@@ -664,6 +719,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       fleet,
       activityLogs,
       clients,
+      setClients,
       searchQuery,
       setSearchQuery,
       isModalOpen,
@@ -708,6 +764,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     fleet,
     activityLogs,
     clients,
+    setClients,
     searchQuery,
     isModalOpen,
     isOrderModalOpen,

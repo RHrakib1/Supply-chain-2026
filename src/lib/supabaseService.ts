@@ -307,18 +307,24 @@ export async function deleteSupabaseRetailer(id: string, tenantId?: string) {
 // --- TENANT / CLIENT BUSINESSES ---
 interface SupabaseClientRow {
   id?: string;
-  name: string;
+  tenant_id?: string;
+  company_name?: string;
+  name?: string;
   owner_name?: string;
   ownerName?: string;
   owner_email?: string;
   ownerEmail?: string;
+  subscription_plan?: "Starter" | "Professional" | "Enterprise";
   plan?: "Starter" | "Professional" | "Enterprise";
+  max_seats?: number;
   max_users?: number;
   maxUsers?: number;
+  user_seats?: number;
   active_users?: number;
   activeUsers?: number;
   status?: "Active" | "Pending" | "Suspended";
   mrr?: number;
+  joined_date?: string;
   created_at?: string;
   createdAt?: string;
 }
@@ -356,16 +362,16 @@ export async function fetchSupabaseClients(): Promise<ClientBusiness[] | null> {
     console.log(`[Supabase] Successfully fetched ${data.length} client tenant record(s) from database.`);
 
     return (data as SupabaseClientRow[]).map((c, index) => ({
-      id: c.id || `CLI-${101 + index}`,
-      name: c.name || (c as unknown as { company_name?: string }).company_name || "Enterprise Partner",
+      id: c.tenant_id || c.id || `CLI-${101 + index}`,
+      name: c.company_name || c.name || "Enterprise Partner",
       ownerName: c.owner_name || c.ownerName || "Client Owner",
       ownerEmail: c.owner_email || c.ownerEmail || "owner@client.com",
-      plan: c.plan || "Professional",
-      maxUsers: c.max_users ?? c.maxUsers ?? 20,
-      activeUsers: c.active_users ?? c.activeUsers ?? 1,
+      plan: c.subscription_plan || c.plan || "Professional",
+      maxUsers: c.max_seats ?? c.max_users ?? c.maxUsers ?? 20,
+      activeUsers: c.user_seats ?? c.active_users ?? c.activeUsers ?? 1,
       status: (c.status || "Active") as ClientBusiness["status"],
-      mrr: c.mrr ?? (c.plan === "Enterprise" ? 250000 : c.plan === "Starter" ? 35000 : 95000),
-      createdAt: c.created_at?.split("T")[0] || c.createdAt || new Date().toISOString().split("T")[0],
+      mrr: c.mrr ?? ((c.subscription_plan || c.plan) === "Enterprise" ? 250000 : (c.subscription_plan || c.plan) === "Starter" ? 35000 : 95000),
+      createdAt: c.joined_date || c.created_at?.split("T")[0] || c.createdAt || new Date().toISOString().split("T")[0],
     }));
   } catch (err) {
     console.error("[Supabase Error] Failed to fetch clients/tenants:", err);
@@ -379,7 +385,31 @@ export async function insertSupabaseClient(client: ClientBusiness): Promise<bool
     return false;
   }
 
-  const payloadSnake = {
+  const payloadExplicitSql = {
+    tenant_id: client.id,
+    company_name: client.name,
+    owner_name: client.ownerName,
+    owner_email: client.ownerEmail,
+    subscription_plan: client.plan,
+    status: client.status,
+    user_seats: client.activeUsers,
+    max_seats: client.maxUsers,
+  };
+
+  const payloadSnake: Record<string, unknown> = {
+    id: client.id,
+    name: client.name,
+    owner_name: client.ownerName,
+    owner_email: client.ownerEmail,
+    plan: client.plan,
+    max_users: client.maxUsers,
+    active_users: client.activeUsers,
+    status: client.status,
+    mrr: client.mrr,
+    created_at: client.createdAt || new Date().toISOString(),
+  };
+
+  const payloadSnakeNoId: Record<string, unknown> = {
     name: client.name,
     owner_name: client.ownerName,
     owner_email: client.ownerEmail,
@@ -390,49 +420,36 @@ export async function insertSupabaseClient(client: ClientBusiness): Promise<bool
     mrr: client.mrr,
   };
 
-  const payloadCamel = {
-    name: client.name,
-    ownerName: client.ownerName,
-    ownerEmail: client.ownerEmail,
-    plan: client.plan,
-    maxUsers: client.maxUsers,
-    activeUsers: client.activeUsers,
-    status: client.status,
-    mrr: client.mrr,
-  };
-
   try {
-    // 1. Attempt insert into 'clients' (snake_case)
-    const { error: errClientsSnake } = await supabase.from("clients").insert([payloadSnake]);
-    if (!errClientsSnake) {
+    // 1. Attempt insert with exact SQL schema fields (tenant_id, company_name, subscription_plan, user_seats, max_seats)
+    let { error } = await supabase.from("clients").insert([payloadExplicitSql]);
+    if (!error) {
+      console.log(`[Supabase SUCCESS] Inserted client "${client.name}" into 'clients' table (SQL schema).`);
+      return true;
+    }
+
+    // 2. Attempt insert into 'clients' (snake_case with id)
+    ({ error } = await supabase.from("clients").insert([payloadSnake]));
+    if (!error) {
       console.log(`[Supabase SUCCESS] Inserted client "${client.name}" into 'clients' table.`);
       return true;
     }
-    console.warn("[Supabase] Insert into 'clients' (snake_case) failed:", errClientsSnake.message);
 
-    // 2. Attempt insert into 'clients' (camelCase)
-    const { error: errClientsCamel } = await supabase.from("clients").insert([payloadCamel]);
-    if (!errClientsCamel) {
-      console.log(`[Supabase SUCCESS] Inserted client "${client.name}" into 'clients' table (camelCase).`);
+    // 3. Attempt insert into 'clients' (snake_case without id)
+    ({ error } = await supabase.from("clients").insert([payloadSnakeNoId]));
+    if (!error) {
+      console.log(`[Supabase SUCCESS] Inserted client "${client.name}" into 'clients' table (auto-id).`);
       return true;
     }
-    console.warn("[Supabase] Insert into 'clients' (camelCase) failed:", errClientsCamel.message);
 
-    // 3. Attempt insert into 'tenants' (snake_case)
-    const { error: errTenantsSnake } = await supabase.from("tenants").insert([payloadSnake]);
-    if (!errTenantsSnake) {
+    // 4. Attempt insert into 'tenants' (snake_case)
+    ({ error } = await supabase.from("tenants").insert([payloadSnake]));
+    if (!error) {
       console.log(`[Supabase SUCCESS] Inserted client "${client.name}" into 'tenants' table.`);
       return true;
     }
-    console.warn("[Supabase] Insert into 'tenants' (snake_case) failed:", errTenantsSnake.message);
 
-    // 4. Attempt insert into 'tenants' (camelCase)
-    const { error: errTenantsCamel } = await supabase.from("tenants").insert([payloadCamel]);
-    if (!errTenantsCamel) {
-      console.log(`[Supabase SUCCESS] Inserted client "${client.name}" into 'tenants' table (camelCase).`);
-      return true;
-    }
-    console.error("[Supabase ERROR] All insert attempts into 'clients' and 'tenants' tables failed:", errTenantsCamel.message);
+    console.error("[Supabase ERROR] All insert attempts into 'clients' and 'tenants' tables failed:", error?.message);
     return false;
   } catch (err) {
     console.error("[Supabase ERROR] Exception during client insertion:", err);

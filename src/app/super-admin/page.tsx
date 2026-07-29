@@ -20,7 +20,9 @@ import {
   X,
   UserCheck
 } from "lucide-react";
-import { useDashboard } from "@/context/DashboardContext";
+import { useDashboard, ClientBusiness } from "@/context/DashboardContext";
+import { supabase } from "@/lib/supabase";
+import { insertSupabaseClient, isSupabaseConfigured } from "@/lib/supabaseService";
 
 export default function SuperAdminPage() {
   const router = useRouter();
@@ -29,7 +31,7 @@ export default function SuperAdminPage() {
     userRole,
     isLoading,
     clients, 
-    addClientBusiness, 
+    setClients,
     toggleClientStatus, 
     deleteClientBusiness, 
     addToast,
@@ -48,10 +50,75 @@ export default function SuperAdminPage() {
   const [plan, setPlan] = useState<"Starter" | "Professional" | "Enterprise">("Professional");
   const [maxUsers, setMaxUsers] = useState(20);
 
-  // Hydrate live Supabase clients on mount
+  // Hydrate live Supabase clients or localStorage fallback on mount
   useEffect(() => {
+    async function hydratePersistentClients() {
+      // a. Try fetching persistent clients from Supabase database
+      if (isSupabaseConfigured()) {
+        try {
+          const directRes = await supabase.from("clients").select("*").order("created_at", { ascending: false });
+          let supaData = directRes.data;
+          if (directRes.error || !supaData || supaData.length === 0) {
+            const tenantRes = await supabase.from("tenants").select("*").order("created_at", { ascending: false });
+            if (!tenantRes.error && tenantRes.data && tenantRes.data.length > 0) {
+              supaData = tenantRes.data;
+            }
+          }
+
+          if (supaData && supaData.length > 0) {
+            const parsedSupaClients: ClientBusiness[] = supaData.map((c, index) => ({
+              id: c.tenant_id || c.id || `CLI-${101 + index}`,
+              name: c.company_name || c.name || "Enterprise Partner",
+              ownerName: c.owner_name || c.ownerName || "Client Owner",
+              ownerEmail: c.owner_email || c.ownerEmail || "owner@client.com",
+              plan: c.subscription_plan || c.plan || "Professional",
+              maxUsers: c.max_seats ?? c.max_users ?? c.maxUsers ?? 20,
+              activeUsers: c.user_seats ?? c.active_users ?? c.activeUsers ?? 1,
+              status: (c.status || "Active") as ClientBusiness["status"],
+              mrr: c.mrr ?? ((c.subscription_plan || c.plan) === "Enterprise" ? 250000 : (c.subscription_plan || c.plan) === "Starter" ? 35000 : 95000),
+              createdAt: c.joined_date || c.created_at?.split("T")[0] || c.createdAt || new Date().toISOString().split("T")[0],
+            }));
+
+            // b. Use Supabase data as primary client list & sync to localStorage
+            setClients(prev => {
+              const map = new Map<string, ClientBusiness>();
+              parsedSupaClients.forEach(item => map.set(item.id, item));
+              prev.forEach(item => {
+                if (!map.has(item.id)) map.set(item.id, item);
+              });
+              const merged = Array.from(map.values());
+              if (typeof window !== "undefined") {
+                localStorage.setItem("logilink_clients", JSON.stringify(merged));
+              }
+              return merged;
+            });
+            return;
+          }
+        } catch (err) {
+          console.warn("Notice fetching Supabase clients on mount:", err);
+        }
+      }
+
+      // c. If Supabase query is loading/empty, check localStorage.getItem('logilink_clients')
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("logilink_clients");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setClients(parsed);
+              return;
+            }
+          } catch (e) {
+            console.error("Error reading logilink_clients from localStorage:", e);
+          }
+        }
+      }
+    }
+
+    hydratePersistentClients();
     loadSupabaseData(false);
-  }, [loadSupabaseData]);
+  }, [loadSupabaseData, setClients]);
 
   // Protect page: redirect non-super-admins to Home only after hydration completes
   useEffect(() => {
@@ -125,21 +192,60 @@ export default function SuperAdminPage() {
       }
 
       const data = await res.json();
+      const assignedTenantId = data.tenantId || generatedTenantId;
 
-      // 2. Also register client business in local state
-      await addClientBusiness({
+      const planMrrMap: Record<string, number> = {
+        Starter: 35000,
+        Professional: 95000,
+        Enterprise: 250000,
+      };
+
+      const newClientItem: ClientBusiness = {
+        id: assignedTenantId,
         name: name.trim(),
         ownerName: ownerName.trim(),
         ownerEmail: ownerEmail.trim(),
         plan,
         maxUsers: Number(maxUsers),
+        activeUsers: 1,
         status: "Active",
+        mrr: planMrrMap[plan] || 95000,
+        createdAt: new Date().toISOString().split("T")[0],
+      };
+
+      // 2. Direct Supabase query & helper insert
+      if (isSupabaseConfigured()) {
+        try {
+          await supabase.from("clients").insert([{
+            tenant_id: newClientItem.id,
+            company_name: newClientItem.name,
+            owner_name: newClientItem.ownerName,
+            owner_email: newClientItem.ownerEmail,
+            subscription_plan: newClientItem.plan,
+            status: newClientItem.status,
+            user_seats: newClientItem.activeUsers,
+            max_seats: newClientItem.maxUsers,
+          }]);
+        } catch (supaErr) {
+          console.warn("Direct Supabase query insert notice:", supaErr);
+        }
+      }
+      await insertSupabaseClient(newClientItem);
+
+      // 3. Save updated clients array directly into localStorage.setItem('logilink_clients', ...) as offline/cache fallback
+      setClients(prev => {
+        const exists = prev.some(c => c.id === assignedTenantId || (c.name.toLowerCase() === newClientItem.name.toLowerCase() && c.ownerEmail.toLowerCase() === newClientItem.ownerEmail.toLowerCase()));
+        const updated = exists ? prev : [newClientItem, ...prev];
+        if (typeof window !== "undefined") {
+          localStorage.setItem("logilink_clients", JSON.stringify(updated));
+        }
+        return updated;
       });
 
-      // Re-fetch live updated tenant list from Supabase
+      // 4. Re-fetch live updated tenant list from Supabase
       await loadSupabaseData(false);
 
-      setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges & Tenant ID: ${data.tenantId || generatedTenantId}.`);
+      setSuccessNotice(`Successfully onboarded "${name}"! Client owner (${ownerEmail}) has been provisioned with Admin privileges & Tenant ID: ${assignedTenantId}.`);
       setIsModalOpen(false);
 
       // Reset form
