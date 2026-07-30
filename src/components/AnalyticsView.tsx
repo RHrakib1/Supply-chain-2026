@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -47,11 +47,19 @@ export default function AnalyticsView({ searchQuery }: AnalyticsViewProps) {
     isSuperAdmin, 
     activeTenantId, 
     isLoading,
-    addToast 
+    addToast,
+    dateRange
   } = useDashboard();
 
   const [timeframe, setTimeframe] = useState<"Last 7 Days" | "Last 30 Days" | "Year to Date">("Last 30 Days");
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
+
+  // Sync timeframe with global dateRange
+  useEffect(() => {
+    if (dateRange === "7d") setTimeframe("Last 7 Days");
+    else if (dateRange === "30d") setTimeframe("Last 30 Days");
+    else if (dateRange === "custom") setTimeframe("Year to Date");
+  }, [dateRange]);
 
   // Timeframe Multiplier for Dynamic Filter Simulation
   const timeframeMultiplier = useMemo(() => {

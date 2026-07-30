@@ -122,6 +122,11 @@ interface DashboardContextType {
   setClients: React.Dispatch<React.SetStateAction<ClientBusiness[]>>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  dateRange: "7d" | "30d" | "custom";
+  customDates: { start: string; end: string };
+  setDateRange: (range: "7d" | "30d" | "custom", dates?: { start: string; end: string }) => void;
+  theme: "dark" | "light";
+  toggleTheme: () => void;
   isModalOpen: boolean;
   setIsModalOpen: (open: boolean) => void;
   isOrderModalOpen: boolean;
@@ -257,6 +262,44 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Global Master Date Range Filter State
+  const [dateRange, setDateRangeState] = useState<"7d" | "30d" | "custom">("30d");
+  const [customDates, setCustomDates] = useState<{ start: string; end: string }>({
+    start: new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0],
+    end: new Date().toISOString().split("T")[0],
+  });
+
+  const setDateRange = useCallback((range: "7d" | "30d" | "custom", dates?: { start: string; end: string }) => {
+    setDateRangeState(range);
+    if (dates) {
+      setCustomDates(dates);
+    }
+  }, []);
+
+  // Enterprise Theme (Dark / Light) State Management
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appTheme") as "dark" | "light" | null;
+      if (saved === "light" || saved === "dark") return saved;
+    }
+    return "dark";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("appTheme", theme);
+      if (theme === "light") {
+        document.documentElement.classList.add("light");
+      } else {
+        document.documentElement.classList.remove("light");
+      }
+    }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === "dark" ? "light" : "dark"));
   }, []);
 
   const userPrimaryEmail = (
@@ -773,6 +816,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setClients,
       searchQuery,
       setSearchQuery,
+      dateRange,
+      customDates,
+      setDateRange,
+      theme,
+      toggleTheme,
       isModalOpen,
       setIsModalOpen,
       isOrderModalOpen,
@@ -819,6 +867,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     clients,
     setClients,
     searchQuery,
+    dateRange,
+    customDates,
+    setDateRange,
+    theme,
+    toggleTheme,
     isModalOpen,
     isOrderModalOpen,
     isUpgradeModalOpen,

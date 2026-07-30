@@ -12,7 +12,10 @@ import {
   Shield,
   User,
   Crown,
-  ChevronDown
+  ChevronDown,
+  Calendar,
+  Sun,
+  Moon
 } from "lucide-react";
 import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import { useDashboard, UserRole } from "@/context/DashboardContext";
@@ -34,11 +37,17 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
     setUserRole,
     activityLogs,
     unreadNotificationsCount,
-    markNotificationsAsRead
+    markNotificationsAsRead,
+    dateRange,
+    setDateRange,
+    theme,
+    toggleTheme
   } = useDashboard();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const dateRef = useRef<HTMLDivElement>(null);
 
   const handleToggleNotifications = () => {
     const nextState = !showNotifications;
@@ -59,6 +68,9 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
       if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
         setShowRoleDropdown(false);
       }
+      if (dateRef.current && !dateRef.current.contains(event.target as Node)) {
+        setShowDateDropdown(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -71,10 +83,8 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
     setShowRoleDropdown(false);
   };
 
-
-
   return (
-    <header className="sticky top-0 z-30 h-16 w-full glass-panel border-b border-white/10 flex items-center justify-between px-4 sm:px-6 bg-slate-950/40">
+    <header className="sticky top-0 z-30 h-16 w-full glass-panel border-b border-white/10 dark:border-white/10 border-slate-200 flex items-center justify-between px-4 sm:px-6 bg-slate-950/40 dark:bg-slate-950/40 bg-white/90 transition-colors">
       {/* Left side: Hamburger and Search */}
       <div className="flex items-center gap-4 flex-1">
         <button
@@ -92,13 +102,60 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
             placeholder="Search shipments, inventory, retailers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-slate-900/60 border border-white/10 rounded-xl text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all duration-300"
+            className="w-full pl-10 pr-4 py-2 text-sm bg-slate-900/60 dark:bg-slate-900/60 bg-slate-100 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all duration-300"
           />
         </div>
       </div>
 
-      {/* Right side: Role Switcher, Supabase Seed, Notifications, Profile */}
-      <div className="flex items-center gap-3">
+      {/* Right side: Master Date Filter, Role Switcher, Supabase Seed, Theme, Notifications, Profile */}
+      <div className="flex items-center gap-2.5">
+        
+        {/* Master Date Range Filter Pill */}
+        <div className="relative hidden md:block" ref={dateRef}>
+          <button
+            onClick={() => setShowDateDropdown(!showDateDropdown)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 shadow-sm"
+          >
+            <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Range: <strong className="font-bold">{dateRange === "7d" ? "Last 7 Days" : dateRange === "30d" ? "Last 30 Days" : "Custom Range"}</strong></span>
+            <ChevronDown className="h-3 w-3 opacity-70" />
+          </button>
+
+          {showDateDropdown && (
+            <div className="absolute right-0 mt-2 w-48 glass-panel rounded-xl shadow-xl border border-slate-200 dark:border-white/15 overflow-hidden bg-white dark:bg-slate-950/95 z-50 animate-in fade-in duration-150 text-slate-900 dark:text-slate-100">
+              <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Master Date Filter
+              </div>
+              <button
+                onClick={() => { setDateRange("7d"); setShowDateDropdown(false); }}
+                className={`w-full px-3.5 py-2 text-xs text-left flex items-center justify-between transition-colors ${
+                  dateRange === "7d" ? "bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 font-bold" : "hover:bg-slate-100 dark:hover:bg-white/5"
+                }`}
+              >
+                <span>Last 7 Days</span>
+                {dateRange === "7d" && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+              </button>
+              <button
+                onClick={() => { setDateRange("30d"); setShowDateDropdown(false); }}
+                className={`w-full px-3.5 py-2 text-xs text-left flex items-center justify-between transition-colors ${
+                  dateRange === "30d" ? "bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 font-bold" : "hover:bg-slate-100 dark:hover:bg-white/5"
+                }`}
+              >
+                <span>Last 30 Days</span>
+                {dateRange === "30d" && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+              </button>
+              <button
+                onClick={() => { setDateRange("custom"); setShowDateDropdown(false); }}
+                className={`w-full px-3.5 py-2 text-xs text-left flex items-center justify-between transition-colors ${
+                  dateRange === "custom" ? "bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 font-bold" : "hover:bg-slate-100 dark:hover:bg-white/5"
+                }`}
+              >
+                <span>Custom Range</span>
+                {dateRange === "custom" && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+              </button>
+            </div>
+          )}
+        </div>
         
         {/* Role Switcher Pill */}
         <div className="relative" ref={roleRef}>
@@ -181,6 +238,19 @@ export default function Navbar({ onToggleSidebar, searchQuery, setSearchQuery }:
             <span className="hidden sm:inline">{isSeeding ? "Seeding..." : isSupabaseLive ? "Supabase Live" : "Seed Supabase"}</span>
           </button>
         )}
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/10 transition-all duration-200"
+        >
+          {theme === "dark" ? (
+            <Sun className="h-4.5 w-4.5 text-amber-400" />
+          ) : (
+            <Moon className="h-4.5 w-4.5 text-indigo-600" />
+          )}
+        </button>
 
         {/* Notifications Dropdown */}
         <div className="relative" ref={notifRef}>

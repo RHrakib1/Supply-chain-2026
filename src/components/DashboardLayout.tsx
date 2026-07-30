@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
@@ -52,10 +52,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Sidebar with standard Next.js route navigation */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
-      />
+      <Suspense fallback={null}>
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+        />
+      </Suspense>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:pl-64 min-w-0 transition-all duration-300">
