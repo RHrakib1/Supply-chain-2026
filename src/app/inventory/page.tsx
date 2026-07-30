@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import InventoryView from "@/components/InventoryView";
 
-export default function InventoryPage() {
+function InventoryPageContent() {
   const router = useRouter();
   const { inventory, searchQuery, restockSku, setIsModalOpen, userRole } = useDashboard();
 
@@ -27,3 +27,10 @@ export default function InventoryPage() {
   );
 }
 
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-slate-900/40 rounded-3xl" />}>
+      <InventoryPageContent />
+    </Suspense>
+  );
+}

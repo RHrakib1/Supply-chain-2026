@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import { 
   ShieldCheck, 
@@ -14,11 +14,15 @@ import {
   Users,
   Building2,
   Mail,
-  Loader2
+  Loader2,
+  Truck
 } from "lucide-react";
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "roles";
+
   const { userRole, isAdmin, setUserRole, isSupabaseLive, activeTenantId, addToast } = useDashboard();
 
   const [staffEmail, setStaffEmail] = useState("");
@@ -85,188 +89,258 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* Staff & Driver Provisioning Card */}
-      <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20 space-y-5 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/30">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-indigo-400" />
-              Client Tenant Staff & Driver Provisioning
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Provision drivers and warehouse staff under your isolated tenant environment
-            </p>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-300 font-bold w-fit">
-            <Building2 className="h-3.5 w-3.5" />
-            <span>Active Tenant: {activeTenantId || "CLI-101"}</span>
-          </div>
-        </div>
+      {/* Dynamic Settings Sub-Navigation Tabs Bar */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 dark:bg-slate-900/60 border border-slate-300/80 dark:border-white/10 rounded-2xl overflow-x-auto text-xs font-bold">
+        <button
+          onClick={() => router.push("/settings?tab=roles")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "roles" || activeTab === "team"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          <span>Team Provisioning & RBAC Roles</span>
+        </button>
 
-        {staffNotice && (
-          <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-              <span>{staffNotice}</span>
-            </div>
-            <button onClick={() => setStaffNotice(null)} className="text-emerald-400 hover:text-white font-bold ml-2">
-              ✕
-            </button>
-          </div>
-        )}
-
-        <form onSubmit={handleProvisionStaff} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                Staff / Driver Full Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. John Miller"
-                value={staffName}
-                onChange={(e) => setStaffName(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                Staff / Driver Email Address *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. driver@acmefreight.com"
-                  value={staffEmail}
-                  onChange={(e) => setStaffEmail(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-white/5">
-            <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-indigo-400" />
-              Provisioning assigns <strong>publicMetadata.role = &apos;user&apos;</strong> and <strong>tenantId = {activeTenantId || "CLI-101"}</strong>
-            </p>
-            <button
-              type="submit"
-              disabled={isSubmittingStaff}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 self-start sm:self-auto"
-            >
-              {isSubmittingStaff ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <UserPlus className="h-3.5 w-3.5" />
-              )}
-              <span>{isSubmittingStaff ? "Provisioning..." : "Provision Staff Member"}</span>
-            </button>
-          </div>
-        </form>
+        <button
+          onClick={() => router.push("/settings?tab=couriers")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "couriers" || activeTab === "integrations"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Truck className="h-4 w-4" />
+          <span>Courier APIs & System Integrations</span>
+        </button>
       </div>
 
-      {/* Role Configuration Card */}
-      <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-6 bg-slate-950/40">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-indigo-400" />
-              Active Session Role Configuration
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Role permissions determined by Clerk User Metadata (`publicMetadata.role` / `unsafeMetadata.role`)
-            </p>
-          </div>
-          <span className={`text-xs font-black uppercase px-3 py-1 rounded-full border ${
-            isAdmin 
-              ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30" 
-              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-          }`}>
-            Current: {userRole}
-          </span>
-        </div>
+      {/* SECTION 1: TEAM ROLES & STAFF PROVISIONING */}
+      {(activeTab === "roles" || activeTab === "team" || (activeTab !== "couriers" && activeTab !== "integrations")) && (
+        <>
+          {/* Staff & Driver Provisioning Card */}
+          <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20 space-y-5 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-indigo-400" />
+                  Client Tenant Staff & Driver Provisioning
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Provision drivers and warehouse staff under your isolated tenant environment
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-300 font-bold w-fit">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Active Tenant: {activeTenantId || "CLI-101"}</span>
+              </div>
+            </div>
 
-        {/* Role Switcher Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Admin Role Box */}
-          <div 
-            onClick={() => setUserRole("admin")}
-            className={`p-5 rounded-xl border transition-all cursor-pointer ${
-              userRole === "admin"
-                ? "bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-500/50"
-                : "bg-slate-900/40 border-white/10 hover:bg-white/5"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
-                  <ShieldCheck className="h-5 w-5" />
+            {staffNotice && (
+              <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                  <span>{staffNotice}</span>
                 </div>
+                <button onClick={() => setStaffNotice(null)} className="text-emerald-400 hover:text-white font-bold ml-2">
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleProvisionStaff} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-white">Administrator Role (`admin`)</h3>
-                  <span className="text-[10px] text-indigo-300 font-semibold">Full System Access</span>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Staff / Driver Full Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Miller"
+                    value={staffName}
+                    onChange={(e) => setStaffName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Staff / Driver Email Address *
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. driver@acmefreight.com"
+                      value={staffEmail}
+                      onChange={(e) => setStaffEmail(e.target.value)}
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
                 </div>
               </div>
-              {userRole === "admin" && <CheckCircle2 className="h-5 w-5 text-indigo-400" />}
-            </div>
-            <ul className="mt-4 space-y-1.5 text-xs text-slate-400 border-t border-white/5 pt-3">
-              <li className="flex items-center gap-1.5 text-slate-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Access all pages & analytics
-              </li>
-              <li className="flex items-center gap-1.5 text-slate-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Add/delete SKUs & orders
-              </li>
-              <li className="flex items-center gap-1.5 text-slate-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Onboard retailers & inspect financials
-              </li>
-            </ul>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-white/5">
+                <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-indigo-400" />
+                  Provisioning assigns <strong>publicMetadata.role = &apos;user&apos;</strong> and <strong>tenantId = {activeTenantId || "CLI-101"}</strong>
+                </p>
+                <button
+                  type="submit"
+                  disabled={isSubmittingStaff}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 self-start sm:self-auto"
+                >
+                  {isSubmittingStaff ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-3.5 w-3.5" />
+                  )}
+                  <span>{isSubmittingStaff ? "Provisioning..." : "Provision Staff Member"}</span>
+                </button>
+              </div>
+            </form>
           </div>
 
-          {/* User Role Box */}
-          <div 
-            onClick={() => setUserRole("user")}
-            className={`p-5 rounded-xl border transition-all cursor-pointer ${
-              userRole === "user"
-                ? "bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-500/50"
-                : "bg-slate-900/40 border-white/10 hover:bg-white/5"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
-                  <UserCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Normal User Role (`user`)</h3>
-                  <span className="text-[10px] text-emerald-300 font-semibold">Restricted Operational Access</span>
-                </div>
+          {/* Role Configuration Card */}
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-6 bg-slate-950/40">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-indigo-400" />
+                  Active Session Role Configuration
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Role permissions determined by Clerk User Metadata (`publicMetadata.role` / `unsafeMetadata.role`)
+                </p>
               </div>
-              {userRole === "user" && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
+              <span className={`text-xs font-black uppercase px-3 py-1 rounded-full border ${
+                isAdmin 
+                  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30" 
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+              }`}>
+                Current: {userRole}
+              </span>
             </div>
-            <ul className="mt-4 space-y-1.5 text-xs text-slate-400 border-t border-white/5 pt-3">
-              <li className="flex items-center gap-1.5 text-slate-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Access `/route-tracking` strictly
-              </li>
-              <li className="flex items-center gap-1.5 text-slate-400 line-through">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                Administrative pages (/inventory, /orders, /settings) blocked
-              </li>
-              <li className="flex items-center gap-1.5 text-slate-400 line-through">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                Destructive & update actions disabled
-              </li>
-            </ul>
+
+            {/* Role Switcher Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Admin Role Box */}
+              <div 
+                onClick={() => setUserRole("admin")}
+                className={`p-5 rounded-xl border transition-all cursor-pointer ${
+                  userRole === "admin"
+                    ? "bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-500/50"
+                    : "bg-slate-900/40 border-white/10 hover:bg-white/5"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Administrator Role (`admin`)</h3>
+                      <span className="text-[10px] text-indigo-300 font-semibold">Full System Access</span>
+                    </div>
+                  </div>
+                  {userRole === "admin" && <CheckCircle2 className="h-5 w-5 text-indigo-400" />}
+                </div>
+                <ul className="mt-4 space-y-1.5 text-xs text-slate-400 border-t border-white/5 pt-3">
+                  <li className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Access all pages & analytics
+                  </li>
+                  <li className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Add/delete SKUs & orders
+                  </li>
+                  <li className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Onboard retailers & inspect financials
+                  </li>
+                </ul>
+              </div>
+
+              {/* User Role Box */}
+              <div 
+                onClick={() => setUserRole("user")}
+                className={`p-5 rounded-xl border transition-all cursor-pointer ${
+                  userRole === "user"
+                    ? "bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-500/50"
+                    : "bg-slate-900/40 border-white/10 hover:bg-white/5"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <UserCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Normal User Role (`user`)</h3>
+                      <span className="text-[10px] text-emerald-300 font-semibold">Restricted Operational Access</span>
+                    </div>
+                  </div>
+                  {userRole === "user" && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
+                </div>
+                <ul className="mt-4 space-y-1.5 text-xs text-slate-400 border-t border-white/5 pt-3">
+                  <li className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Access `/route-tracking` strictly
+                  </li>
+                  <li className="flex items-center gap-1.5 text-slate-400 line-through">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    Administrative pages (/inventory, /orders, /settings) blocked
+                  </li>
+                  <li className="flex items-center gap-1.5 text-slate-400 line-through">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    Destructive & update actions disabled
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* SECTION 2: COURIER APIS & SYSTEM INTEGRATIONS */}
+      {(activeTab === "couriers" || activeTab === "integrations") && (
+        <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-6 bg-slate-950/40">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Truck className="h-5 w-5 text-indigo-400" />
+                Integrated Courier API Gateways & Webhooks
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Manage API credentials for Steadfast Courier, Pathao Courier, Paperfly, RedX, and eCourier
+              </p>
+            </div>
+            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              5 Webhooks Connected
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl bg-slate-900 border border-white/10 space-y-2">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-white text-xs">Steadfast Courier API</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-bold">Active</span>
+              </div>
+              <p className="text-[11px] text-slate-400">ApiKey: `stdfst_live_9921*****` | Secret: `••••••••`</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900 border border-white/10 space-y-2">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-white text-xs">Pathao Logistics API</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-bold">Active</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Client ID: `pth_prod_7712` | Secret: `••••••••`</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Security & Database Status Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -306,5 +380,13 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-slate-900/40 rounded-3xl" />}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

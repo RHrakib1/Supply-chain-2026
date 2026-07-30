@@ -15,6 +15,7 @@ import {
   Archive,
   RefreshCw
 } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDashboard, InventoryItem as ContextInventoryItem } from "@/context/DashboardContext";
 import StockAdjustmentModal, { StockMovementLog } from "./StockAdjustmentModal";
 import BulkInventoryImportModal, { ParsedSKUItem } from "./BulkInventoryImportModal";
@@ -39,6 +40,10 @@ interface InventoryViewProps {
 }
 
 export default function InventoryView({ inventory, searchQuery, onOpenAddSkuModal }: InventoryViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "all_skus";
+
   const { isAdmin, activeTenantId, deleteSku, addToast, setInventory } = useDashboard();
   const [statusFilter, setStatusFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -97,12 +102,16 @@ export default function InventoryView({ inventory, searchQuery, onOpenAddSkuModa
         item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.location.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = statusFilter === "All" || item.status === statusFilter;
+      let matchesTab = true;
+      if (activeTab === "low_stock" || activeTab === "restock") matchesTab = item.status === "Low Stock";
+      else if (activeTab === "out_of_stock") matchesTab = item.status === "Out of Stock";
+      else if (statusFilter !== "All") matchesTab = item.status === statusFilter;
+
       const matchesCategory = categoryFilter === "All" || item.category === categoryFilter;
 
-      return matchesSearch && matchesStatus && matchesCategory;
+      return matchesSearch && matchesTab && matchesCategory;
     });
-  }, [enrichedInventory, searchQuery, statusFilter, categoryFilter]);
+  }, [enrichedInventory, searchQuery, statusFilter, categoryFilter, activeTab]);
 
   // --- COMMERCIAL KPI CALCULATIONS ---
   const totalSkuCount = enrichedInventory.length;
@@ -266,6 +275,53 @@ export default function InventoryView({ inventory, searchQuery, onOpenAddSkuModa
         </div>
       </div>
 
+      {/* Dynamic Sub-Navigation Tabs Bar */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 dark:bg-slate-900/60 border border-slate-300/80 dark:border-white/10 rounded-2xl overflow-x-auto custom-scrollbar text-xs font-bold">
+        <button
+          onClick={() => router.push("/inventory?tab=all_skus")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "all_skus" || activeTab === "all"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          All Catalog SKUs ({enrichedInventory.length})
+        </button>
+
+        <button
+          onClick={() => router.push("/inventory?tab=low_stock")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "low_stock" || activeTab === "restock"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Low Stock Reorders ({enrichedInventory.filter(i => i.status === "Low Stock").length})
+        </button>
+
+        <button
+          onClick={() => router.push("/inventory?tab=out_of_stock")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "out_of_stock"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Out of Stock ({enrichedInventory.filter(i => i.status === "Out of Stock").length})
+        </button>
+
+        <button
+          onClick={() => router.push("/inventory?tab=warehouse_locations")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "warehouse_locations" || activeTab === "warehouses"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Warehouse Locations Breakdown
+        </button>
+      </div>
+
       {/* 4 Commercial Stock Metric KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* SKU Count */}
@@ -332,6 +388,110 @@ export default function InventoryView({ inventory, searchQuery, onOpenAddSkuModa
           <div className="mt-2 text-xs text-slate-500 font-semibold">&gt; 3x safety capacity</div>
         </div>
       </div>
+
+      {/* TAB SECTION: WAREHOUSE LOCATIONS BREAKDOWN */}
+      {(activeTab === "warehouse_locations" || activeTab === "warehouses") && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-200 dark:border-white/10 space-y-6 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Building2 className="h-6 w-6 text-indigo-500" />
+                Multi-Warehouse Hub Locations & Storage Capacity
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Real-time bin occupancy, storage utilization, and aisle inventory distribution across hubs</p>
+            </div>
+            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              3 Active Fulfillment Centers
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Hub 1 */}
+            <div className="p-5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">Dhaka Central Hub</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">Location: Tejgaon Industrial Zone</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  88% Capacity
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300 font-bold">
+                  <span>Occupied Pallets / Bins</span>
+                  <span>1,420 / 1,600</span>
+                </div>
+                <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: "88%" }} />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200 dark:border-white/5 text-xs text-slate-500 space-y-1">
+                <div className="flex justify-between"><span>Assigned SKUs:</span><strong className="text-slate-900 dark:text-white">412 SKUs</strong></div>
+                <div className="flex justify-between"><span>Active Pickers:</span><strong className="text-indigo-500">14 Staff</strong></div>
+              </div>
+            </div>
+
+            {/* Hub 2 */}
+            <div className="p-5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">Chittagong Port Depot</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">Location: Agrabad Export Zone</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                  64% Capacity
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300 font-bold">
+                  <span>Occupied Pallets / Bins</span>
+                  <span>760 / 1,200</span>
+                </div>
+                <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: "64%" }} />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200 dark:border-white/5 text-xs text-slate-500 space-y-1">
+                <div className="flex justify-between"><span>Assigned SKUs:</span><strong className="text-slate-900 dark:text-white">198 SKUs</strong></div>
+                <div className="flex justify-between"><span>Active Pickers:</span><strong className="text-indigo-500">8 Staff</strong></div>
+              </div>
+            </div>
+
+            {/* Hub 3 */}
+            <div className="p-5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">Bogura North Hub</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">Location: Banani Bypass Area</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  42% Capacity
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300 font-bold">
+                  <span>Occupied Pallets / Bins</span>
+                  <span>420 / 1,000</span>
+                </div>
+                <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full" style={{ width: "42%" }} />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200 dark:border-white/5 text-xs text-slate-500 space-y-1">
+                <div className="flex justify-between"><span>Assigned SKUs:</span><strong className="text-slate-900 dark:text-white">115 SKUs</strong></div>
+                <div className="flex justify-between"><span>Active Pickers:</span><strong className="text-indigo-500">5 Staff</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search & Dynamic Status Tabs Filter */}
       <div className="glass-panel rounded-2xl p-5 border border-white/10 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-xl">

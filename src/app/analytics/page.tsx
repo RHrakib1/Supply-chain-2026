@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import AnalyticsView from "@/components/AnalyticsView";
 
-export default function AnalyticsPage() {
+function AnalyticsPageContent() {
   const router = useRouter();
   const { searchQuery, isAdmin } = useDashboard();
 
@@ -24,3 +24,10 @@ export default function AnalyticsPage() {
   );
 }
 
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-slate-900/40 rounded-3xl" />}>
+      <AnalyticsPageContent />
+    </Suspense>
+  );
+}

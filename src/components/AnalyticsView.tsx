@@ -33,6 +33,7 @@ import {
   AreaChart,
   Area
 } from "recharts";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 
 interface AnalyticsViewProps {
@@ -40,6 +41,10 @@ interface AnalyticsViewProps {
 }
 
 export default function AnalyticsView({ searchQuery }: AnalyticsViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "revenue";
+
   const { 
     orders, 
     inventory, 
@@ -539,298 +544,435 @@ export default function AnalyticsView({ searchQuery }: AnalyticsViewProps) {
         </div>
       </div>
 
-      {/* 4 Financial KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Gross Revenue */}
-        <div className="glass-panel p-6 rounded-2xl border border-white/10 relative overflow-hidden shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Gross Sales Revenue</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <DollarSign className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-white">৳ {totalRevenue.toLocaleString()}</span>
-          </div>
-          <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1 font-semibold">
-            <TrendingUp className="h-3 w-3" />
-            <span>+14.8% vs prior period</span>
-          </div>
-        </div>
+      {/* Sub-Navigation Tabs Bar */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 dark:bg-slate-900/60 border border-slate-300/80 dark:border-white/10 rounded-2xl overflow-x-auto custom-scrollbar text-xs font-bold">
+        <button
+          onClick={() => router.push("/analytics?tab=revenue")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "revenue" || activeTab === "trends"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          <TrendingUp className="h-4 w-4" />
+          <span>Revenue & Profit Analytics</span>
+        </button>
 
-        {/* Operating Cost */}
-        <div className="glass-panel p-6 rounded-2xl border border-white/10 relative overflow-hidden shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Operating & Fulfillment Costs</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
-              <Truck className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-white">৳ {operatingCost.toLocaleString()}</span>
-          </div>
-          <div className="mt-2 text-xs text-slate-500 font-semibold">COGS + Logistics + Fulfillment (~68%)</div>
-        </div>
+        <button
+          onClick={() => router.push("/analytics?tab=basket")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "basket"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          <ShoppingCart className="h-4 w-4" />
+          <span>Average Basket Analysis</span>
+        </button>
 
-        {/* Net Profit */}
-        <div className="glass-panel p-6 rounded-2xl border border-white/10 relative overflow-hidden shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Net Operating Profit</span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <ArrowUpRight className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-white">৳ {netProfit.toLocaleString()}</span>
-            <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-              {profitMarginPercent}% Margin
-            </span>
-          </div>
-          <div className="mt-2 text-xs text-slate-500 font-semibold">Net profit after fulfillment expenses</div>
-        </div>
+        <button
+          onClick={() => router.push("/analytics?tab=couriers")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "couriers" || activeTab === "courier"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          <Truck className="h-4 w-4" />
+          <span>Courier Performance Matrix</span>
+        </button>
 
-        {/* Average Order Value (AOV) */}
-        <div className="glass-panel p-6 rounded-2xl border border-white/10 relative overflow-hidden shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Average Order Value (AOV)</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-              <ShoppingCart className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-white">৳ {averageOrderValue.toLocaleString()}</span>
-          </div>
-          <div className="mt-2 text-xs text-slate-500 font-semibold">Average billing per customer order</div>
-        </div>
+        <button
+          onClick={() => router.push("/analytics?tab=inventory_turnover")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "inventory_turnover"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          <PackageX className="h-4 w-4" />
+          <span>Inventory Turnover & Dead Stock</span>
+        </button>
       </div>
 
-      {/* Revenue vs Operating Cost vs Net Profit Interactive Area Chart */}
-      <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-indigo-400" />
-              Financial Revenue vs Operating Cost vs Net Profit Engine
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Filterable breakdown of top-line revenue vs fulfillment costs ({timeframe})</p>
+      {/* TAB SECTION 1: REVENUE & PROFIT ANALYTICS */}
+      {(activeTab === "revenue" || activeTab === "trends" || (activeTab !== "basket" && activeTab !== "couriers" && activeTab !== "courier" && activeTab !== "inventory_turnover")) && (
+        <>
+          {/* 4 Financial KPI Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Gross Revenue */}
+            <div className="glass-panel p-6 rounded-2xl border border-white/10 dark:border-white/10 border-slate-200 relative overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+                <span>Gross Sales Revenue</span>
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">৳ {totalRevenue.toLocaleString()}</span>
+              </div>
+              <div className="mt-2 text-xs text-emerald-500 flex items-center gap-1 font-semibold">
+                <TrendingUp className="h-3 w-3" />
+                <span>+14.8% vs prior period</span>
+              </div>
+            </div>
+
+            {/* Operating Cost */}
+            <div className="glass-panel p-6 rounded-2xl border border-white/10 dark:border-white/10 border-slate-200 relative overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+                <span>Operating & Fulfillment Costs</span>
+                <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500">
+                  <Truck className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">৳ {operatingCost.toLocaleString()}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-400 font-semibold">COGS + Logistics + Fulfillment (~68%)</div>
+            </div>
+
+            {/* Net Profit */}
+            <div className="glass-panel p-6 rounded-2xl border border-white/10 dark:border-white/10 border-slate-200 relative overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+                <span>Net Operating Profit</span>
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500">
+                  <ArrowUpRight className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">৳ {netProfit.toLocaleString()}</span>
+                <span className="text-xs font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                  {profitMarginPercent}% Margin
+                </span>
+              </div>
+              <div className="mt-2 text-xs text-slate-400 font-semibold">Net profit after fulfillment expenses</div>
+            </div>
+
+            {/* Average Order Value (AOV) */}
+            <div className="glass-panel p-6 rounded-2xl border border-white/10 dark:border-white/10 border-slate-200 relative overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+                <span>Average Order Value (AOV)</span>
+                <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500">
+                  <ShoppingCart className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">৳ {averageOrderValue.toLocaleString()}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-400 font-semibold">Average billing per customer order</div>
+            </div>
           </div>
-          <span className="text-[10px] font-black px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 uppercase">
-            Real-Time Supabase Sync
-          </span>
-        </div>
 
-        <div className="w-full h-[320px] pt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={financialTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} tickFormatter={(val) => `৳ ${val / 1000}k`} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: "#090d16", borderColor: "rgba(255,255,255,0.15)", borderRadius: "12px", color: "#fff", fontSize: "12px" }}
-                formatter={(val) => [`৳ ${Number(val ?? 0).toLocaleString()}`, "Amount"]}
-              />
-              <Legend wrapperStyle={{ paddingTop: "12px", fontSize: "12px" }} />
-              <Area type="monotone" dataKey="revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRev)" name="Gross Revenue (৳)" strokeWidth={2} />
-              <Area type="monotone" dataKey="profit" stroke="#10b981" fillOpacity={1} fill="url(#colorProfit)" name="Net Operating Profit (৳)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+          {/* Revenue vs Operating Cost vs Net Profit Interactive Area Chart */}
+          <div className="glass-panel p-6 rounded-3xl border border-white/10 dark:border-white/10 border-slate-200 shadow-2xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-indigo-500" />
+                  Financial Revenue vs Operating Cost vs Net Profit Engine
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">Filterable breakdown of top-line revenue vs fulfillment costs ({timeframe})</p>
+              </div>
+              <span className="text-[10px] font-black px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 uppercase">
+                Real-Time Supabase Sync
+              </span>
+            </div>
 
-      {/* 2 Column Section: High-Value SKU Analytics (Top Selling & Dead Stock) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Top 5 Fast-Moving SKUs */}
-        <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="w-full h-[320px] pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={financialTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                  <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} tickFormatter={(val) => `৳ ${val / 1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: "#090d16", borderColor: "rgba(255,255,255,0.15)", borderRadius: "12px", color: "#fff", fontSize: "12px" }}
+                    formatter={(val) => [`৳ ${Number(val ?? 0).toLocaleString()}`, "Amount"]}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: "12px", fontSize: "12px" }} />
+                  <Area type="monotone" dataKey="revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRev)" name="Gross Revenue (৳)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="profit" stroke="#10b981" fillOpacity={1} fill="url(#colorProfit)" name="Net Operating Profit (৳)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* TAB SECTION 2: AVERAGE BASKET ANALYSIS */}
+      {activeTab === "basket" && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-200 dark:border-white/10 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
             <div>
-              <h2 className="text-base font-black text-white flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-                Top 5 Fast-Moving SKUs (Sales Velocity)
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <ShoppingCart className="h-6 w-6 text-indigo-500" />
+                Average Basket Analysis & Cart Mix Intelligence
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Highest units sold and revenue contribution</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Deep breakdown of order value per customer, cart unit capacity, and cart distribution metrics</p>
             </div>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              High Demand
+            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              Basket Intelligence
             </span>
           </div>
 
-          <div className="space-y-3">
-            {topFastMovingSkus.map((item, idx) => (
-              <div key={item.sku} className="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between hover:bg-white/10 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center font-black text-indigo-300 text-xs">
-                    #{idx + 1}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="p-5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold block">Average Order Value (AOV)</span>
+              <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400">৳ {averageOrderValue.toLocaleString()} BDT</span>
+              <span className="text-xs text-emerald-500 font-bold block mt-1">+12.4% vs last period</span>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold block">Avg Units Per Order Basket</span>
+              <span className="text-3xl font-black text-slate-900 dark:text-white">8.4 Units</span>
+              <span className="text-xs text-indigo-500 font-bold block mt-1">Optimal Bulk Size</span>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold block">Estimated Gross Margin</span>
+              <span className="text-3xl font-black text-emerald-500">{profitMarginPercent}%</span>
+              <span className="text-xs text-slate-400 block mt-1">Net profit after fulfillment</span>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Cart Size Distribution Breakdown</h3>
+            
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <span>Small Basket (1 - 3 Items)</span>
+                  <span>24% (34 Total Orders)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: "24%" }} />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <span>Standard Basket (4 - 10 Items)</span>
+                  <span>54% (79 Total Orders)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-cyan-500 rounded-full" style={{ width: "54%" }} />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <span>Bulk Enterprise Cart (11+ Items)</span>
+                  <span>22% (29 Total Orders)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-purple-500 rounded-full" style={{ width: "22%" }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB SECTION 3: INVENTORY TURNOVER & DEAD STOCK */}
+      {activeTab === "inventory_turnover" && (
+        <>
+          {/* 2 Column Section: High-Value SKU Analytics (Top Selling & Dead Stock) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Top 5 Fast-Moving SKUs */}
+            <div className="glass-panel p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    Top 5 Fast-Moving SKUs (Sales Velocity)
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Highest units sold and revenue contribution</p>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
+                  High Demand
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {topFastMovingSkus.map((item, idx) => (
+                  <div key={item.sku} className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center font-black text-indigo-500 dark:text-indigo-300 text-xs">
+                        #{idx + 1}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-xs">{item.name}</h3>
+                        <span className="text-[10px] font-mono text-slate-400">{item.sku}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-xs font-extrabold text-slate-900 dark:text-white block">৳ {item.revenue.toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-emerald-500">{item.qtySold} units sold</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-white text-xs">{item.name}</h3>
-                    <span className="text-[10px] font-mono text-slate-400">{item.sku}</span>
-                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Dead Stock & Slow-Moving Warning Table */}
+            <div className="glass-panel p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <PackageX className="h-4 w-4 text-rose-500" />
+                    Dead Stock Warning (Capital Tied Up)
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Items sitting in warehouse without sales &gt; 30 days</p>
+                </div>
+                <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500">
+                  ৳ {totalDeadStockCapital.toLocaleString()} Tied Up
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
+                      <th className="pb-2 pr-2">SKU / Item</th>
+                      <th className="pb-2 px-2">Qty On Hand</th>
+                      <th className="pb-2 px-2">Tied Up Capital</th>
+                      <th className="pb-2 pl-2 text-right">Inactive Days</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-white/5">
+                    {deadStockItems.map((d) => (
+                      <tr key={d.sku} className="hover:bg-slate-100/50 dark:hover:bg-white/5">
+                        <td className="py-2.5 pr-2">
+                          <p className="font-bold text-slate-900 dark:text-white text-xs">{d.name}</p>
+                          <span className="text-[9px] font-mono text-slate-400">{d.sku}</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-slate-700 dark:text-slate-300 font-bold">{d.qtyOnHand} units</td>
+                        <td className="py-2.5 px-2 font-extrabold text-rose-500">৳ {d.tiedUpCapital.toLocaleString()}</td>
+                        <td className="py-2.5 pl-2 text-right">
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 font-extrabold text-[10px]">
+                            {d.daysInactive} days
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Inventory Turnover & Stock-Out Predictive Alert Table */}
+          <div className="glass-panel p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-amber-500" />
+                  Inventory Turnover & Stock-Out Predictive Alert Engine
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">Calculated days of remaining stock based on daily sales velocity</p>
+              </div>
+              <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500">
+                Predictive Stock Run-Out
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
+                    <th className="pb-3 pr-4">Inventory SKU / Name</th>
+                    <th className="pb-3 px-4">Current Stock</th>
+                    <th className="pb-3 px-4">Daily Sales Velocity</th>
+                    <th className="pb-3 px-4">Est. Days Remaining</th>
+                    <th className="pb-3 pl-4 text-right">Stock-Out Risk Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-white/5">
+                  {inventoryPredictiveTurnover.map((item) => (
+                    <tr key={item.sku} className="hover:bg-slate-100/50 dark:hover:bg-white/5">
+                      <td className="py-3 pr-4">
+                        <p className="font-bold text-slate-900 dark:text-white text-xs">{item.name}</p>
+                        <span className="text-[10px] font-mono text-slate-400">{item.sku}</span>
+                      </td>
+                      <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-200">{item.qty} units</td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{item.avgDailySales} units/day</td>
+                      <td className="py-3 px-4 font-extrabold text-slate-900 dark:text-white">{item.daysRemaining} days</td>
+                      <td className="py-3 pl-4 text-right">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
+                          item.riskLevel === "Critical Stock-Out"
+                            ? "bg-rose-500/10 border-rose-500/30 text-rose-500 animate-pulse"
+                            : item.riskLevel === "Reorder Warning"
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+                            : "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                        }`}>
+                          {item.riskLevel}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* TAB SECTION 4: COURIER PERFORMANCE MATRIX */}
+      {(activeTab === "couriers" || activeTab === "courier") && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Truck className="h-5 w-5 text-indigo-500" />
+                Integrated Courier Fulfillment & RTO Performance Matrix
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">Delivery success rate vs return-to-origin (RTO) percentage across integrated couriers</p>
+            </div>
+            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+              6 Courier Networks Integrated
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {courierPerformance.map((c) => (
+              <div key={c.name} className="p-4 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-indigo-500" />
+                    {c.name}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-500/20 text-indigo-500 dark:text-indigo-300 border border-indigo-500/30">
+                    Grade {c.rating}
+                  </span>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-xs font-extrabold text-white block">৳ {item.revenue.toLocaleString()}</span>
-                  <span className="text-[10px] font-bold text-emerald-400">{item.qtySold} units sold</span>
+                <div className="grid grid-cols-2 gap-2 text-center text-xs pt-1 border-t border-slate-200 dark:border-white/5">
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5">
+                    <span className="text-[10px] text-slate-400 font-bold block">Delivery Success</span>
+                    <span className="text-sm font-black text-emerald-500">{c.successRate}%</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5">
+                    <span className="text-[10px] text-slate-400 font-bold block">Return (RTO) Rate</span>
+                    <span className="text-sm font-black text-rose-500">{c.rtoRate}%</span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Dead Stock & Slow-Moving Warning Table */}
-        <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div>
-              <h2 className="text-base font-black text-white flex items-center gap-2">
-                <PackageX className="h-4 w-4 text-rose-400" />
-                Dead Stock Warning (Capital Tied Up)
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Items sitting in warehouse without sales &gt; 30 days</p>
-            </div>
-            <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
-              ৳ {totalDeadStockCapital.toLocaleString()} Tied Up
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
-                  <th className="pb-2 pr-2">SKU / Item</th>
-                  <th className="pb-2 px-2">Qty On Hand</th>
-                  <th className="pb-2 px-2">Tied Up Capital</th>
-                  <th className="pb-2 pl-2 text-right">Inactive Days</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {deadStockItems.map((d) => (
-                  <tr key={d.sku} className="hover:bg-white/5">
-                    <td className="py-2.5 pr-2">
-                      <p className="font-bold text-white text-xs">{d.name}</p>
-                      <span className="text-[9px] font-mono text-slate-500">{d.sku}</span>
-                    </td>
-                    <td className="py-2.5 px-2 text-slate-300 font-bold">{d.qtyOnHand} units</td>
-                    <td className="py-2.5 px-2 font-extrabold text-rose-300">৳ {d.tiedUpCapital.toLocaleString()}</td>
-                    <td className="py-2.5 pl-2 text-right">
-                      <span className="px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-extrabold text-[10px]">
-                        {d.daysInactive} days
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Inventory Turnover & Stock-Out Predictive Alert Table */}
-      <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-400" />
-              Inventory Turnover & Stock-Out Predictive Alert Engine
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Calculated days of remaining stock based on daily sales velocity</p>
-          </div>
-          <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
-            Predictive Stock Run-Out
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
-                <th className="pb-3 pr-4">Inventory SKU / Name</th>
-                <th className="pb-3 px-4">Current Stock</th>
-                <th className="pb-3 px-4">Daily Sales Velocity</th>
-                <th className="pb-3 px-4">Est. Days Remaining</th>
-                <th className="pb-3 pl-4 text-right">Stock-Out Risk Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {inventoryPredictiveTurnover.map((item) => (
-                <tr key={item.sku} className="hover:bg-white/5">
-                  <td className="py-3 pr-4">
-                    <p className="font-bold text-white text-xs">{item.name}</p>
-                    <span className="text-[10px] font-mono text-slate-500">{item.sku}</span>
-                  </td>
-                  <td className="py-3 px-4 font-bold text-slate-200">{item.qty} units</td>
-                  <td className="py-3 px-4 text-slate-300">{item.avgDailySales} units/day</td>
-                  <td className="py-3 px-4 font-extrabold text-white">{item.daysRemaining} days</td>
-                  <td className="py-3 pl-4 text-right">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
-                      item.riskLevel === "Critical Stock-Out"
-                        ? "bg-rose-500/10 border-rose-500/30 text-rose-400 animate-pulse"
-                        : item.riskLevel === "Reorder Warning"
-                        ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                    }`}>
-                      {item.riskLevel}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Courier Fulfillment Performance Breakdown */}
-      <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <Truck className="h-5 w-5 text-indigo-400" />
-              Integrated Courier Fulfillment & RTO Performance Matrix
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Delivery success rate vs return-to-origin (RTO) percentage across integrated couriers</p>
-          </div>
-          <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
-            6 Courier Networks Integrated
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courierPerformance.map((c) => (
-            <div key={c.name} className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-white text-xs flex items-center gap-1.5">
-                  <Truck className="h-3.5 w-3.5 text-indigo-400" />
-                  {c.name}
-                </h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  Grade {c.rating}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-center text-xs pt-1 border-t border-white/5">
-                <div className="p-2 rounded-xl bg-slate-900/60 border border-white/5">
-                  <span className="text-[10px] text-slate-400 font-bold block">Delivery Success</span>
-                  <span className="text-sm font-black text-emerald-400">{c.successRate}%</span>
-                </div>
-                <div className="p-2 rounded-xl bg-slate-900/60 border border-white/5">
-                  <span className="text-[10px] text-slate-400 font-bold block">Return (RTO) Rate</span>
-                  <span className="text-sm font-black text-rose-400">{c.rtoRate}%</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

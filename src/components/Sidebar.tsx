@@ -65,9 +65,10 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
       href: "/orders",
       icon: ShoppingCart,
       subItems: [
-        { name: "All Orders", href: "/orders" },
-        { name: "Shipping Labels", href: "/orders?tab=labels", tabKey: "labels" },
-        { name: "Dispatch & Courier", href: "/orders?tab=dispatch", tabKey: "dispatch" }
+        { name: "All Orders", href: "/orders?tab=all", tabKey: "all" },
+        { name: "Pending Orders", href: "/orders?tab=pending", tabKey: "pending" },
+        { name: "Dispatched & In-Transit", href: "/orders?tab=dispatched", tabKey: "dispatched" },
+        { name: "Delivered", href: "/orders?tab=delivered", tabKey: "delivered" }
       ]
     },
     {
@@ -76,9 +77,9 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
       href: "/inventory",
       icon: Package,
       subItems: [
-        { name: "Stock Levels", href: "/inventory" },
-        { name: "Warehouses", href: "/inventory?tab=warehouses", tabKey: "warehouses" },
-        { name: "Restock Alerts", href: "/inventory?tab=restock", tabKey: "restock", badge: "Low" }
+        { name: "All SKUs Directory", href: "/inventory?tab=all_skus", tabKey: "all_skus" },
+        { name: "Low Stock Reorders", href: "/inventory?tab=low_stock", tabKey: "low_stock", badge: "Low" },
+        { name: "Warehouse Locations", href: "/inventory?tab=warehouse_locations", tabKey: "warehouse_locations" }
       ]
     },
     {
@@ -98,9 +99,10 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
       href: "/analytics",
       icon: BarChart3,
       subItems: [
-        { name: "Sales Trends", href: "/analytics" },
+        { name: "Revenue & Sales Trends", href: "/analytics?tab=revenue", tabKey: "revenue" },
         { name: "Basket Size Analysis", href: "/analytics?tab=basket", tabKey: "basket" },
-        { name: "Courier Performance", href: "/analytics?tab=couriers", tabKey: "couriers" }
+        { name: "Courier Performance", href: "/analytics?tab=couriers", tabKey: "couriers" },
+        { name: "Inventory Turnover", href: "/analytics?tab=inventory_turnover", tabKey: "inventory_turnover" }
       ]
     },
     {
@@ -109,8 +111,8 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
       href: "/settings",
       icon: Settings,
       subItems: [
-        { name: "Courier APIs", href: "/settings?tab=couriers", tabKey: "couriers" },
-        { name: "Team Roles", href: "/settings?tab=roles", tabKey: "roles" }
+        { name: "Team Roles & Staff", href: "/settings?tab=roles", tabKey: "roles" },
+        { name: "Courier APIs", href: "/settings?tab=couriers", tabKey: "couriers" }
       ]
     }
   ];

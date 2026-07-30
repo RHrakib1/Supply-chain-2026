@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import OrdersView from "@/components/OrdersView";
 
-export default function OrdersPage() {
+function OrdersPageContent() {
   const router = useRouter();
   const { orders, searchQuery, updateOrderStatus, setIsOrderModalOpen, userRole } = useDashboard();
 
@@ -24,5 +24,13 @@ export default function OrdersPage() {
       onUpdateOrderStatus={updateOrderStatus}
       onOpenOrderModal={() => setIsOrderModalOpen(true)}
     />
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-slate-900/40 rounded-3xl" />}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }

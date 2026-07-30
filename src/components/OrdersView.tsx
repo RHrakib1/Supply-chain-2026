@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Clock
 } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDashboard, Order } from "@/context/DashboardContext";
 import CourierDispatchModal from "./CourierDispatchModal";
 import InvoiceLabelModal from "./InvoiceLabelModal";
@@ -31,6 +32,10 @@ interface OrdersViewProps {
 }
 
 export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, onOpenOrderModal }: OrdersViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "all";
+
   const { isAdmin, activeTenantId, deleteOrder, addToast } = useDashboard();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("All");
@@ -52,11 +57,16 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
         o.retailer.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.items.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = statusFilter === "All" || o.status === statusFilter;
+      let matchesTab = true;
+      if (activeTab === "pending") matchesTab = o.status === "Pending";
+      else if (activeTab === "dispatched" || activeTab === "dispatch" || activeTab === "in_transit") matchesTab = o.status === "Processing" || o.status === "In Transit";
+      else if (activeTab === "delivered") matchesTab = o.status === "Delivered";
+      else if (activeTab === "returned" || activeTab === "cancelled" || activeTab === "labels") matchesTab = o.status === "Cancelled" || o.status === "Pending";
+      else if (statusFilter !== "All") matchesTab = o.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesTab;
     });
-  }, [orders, searchQuery, statusFilter]);
+  }, [orders, searchQuery, statusFilter, activeTab]);
 
   const activeOrder = useMemo(() => {
     return orders.find(o => o.id === currentSelectedId) || orders[0];
@@ -155,6 +165,64 @@ export default function OrdersView({ orders, searchQuery, onUpdateOrderStatus, o
             Process New Sales Order
           </button>
         </div>
+      </div>
+
+      {/* Dynamic Status Sub-Tabs Bar */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 dark:bg-slate-900/60 border border-slate-300/80 dark:border-white/10 rounded-2xl overflow-x-auto custom-scrollbar text-xs font-bold">
+        <button
+          onClick={() => router.push("/orders?tab=all")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "all"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          All Orders ({orders.length})
+        </button>
+
+        <button
+          onClick={() => router.push("/orders?tab=pending")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "pending"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Pending ({orders.filter(o => o.status === "Pending").length})
+        </button>
+
+        <button
+          onClick={() => router.push("/orders?tab=dispatched")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "dispatched" || activeTab === "dispatch" || activeTab === "in_transit"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Dispatched & In-Transit ({orders.filter(o => o.status === "Processing" || o.status === "In Transit").length})
+        </button>
+
+        <button
+          onClick={() => router.push("/orders?tab=delivered")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "delivered"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Delivered ({orders.filter(o => o.status === "Delivered").length})
+        </button>
+
+        <button
+          onClick={() => router.push("/orders?tab=returned")}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "returned" || activeTab === "cancelled"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/5"
+          }`}
+        >
+          Returned / Cancelled ({orders.filter(o => o.status === "Cancelled").length})
+        </button>
       </div>
 
       {/* 4 Commercial Order Metrics KPI Cards */}
