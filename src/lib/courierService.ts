@@ -161,3 +161,45 @@ export async function simulateCourierDispatch(config: CourierDispatchConfig): Pr
     message: `Order ${config.orderId} successfully dispatched via ${config.provider} API API tracking code: ${trackingNumber}`,
   };
 }
+
+export interface CourierTestResult {
+  success: boolean;
+  latencyMs: number;
+  balanceBdt?: number;
+  statusMsg: string;
+}
+
+export async function testCourierConnection(
+  provider: CourierProvider,
+  apiKey: string,
+  secretKey?: string,
+  storeId?: string
+): Promise<CourierTestResult> {
+  const startTime = Date.now();
+  await new Promise((resolve) => setTimeout(resolve, 350 + Math.random() * 200));
+  const latencyMs = Date.now() - startTime;
+
+  if (!apiKey || apiKey.trim().length < 4) {
+    return {
+      success: false,
+      latencyMs,
+      statusMsg: `Invalid or missing API key credentials for ${provider}`,
+    };
+  }
+
+  const mockBalances: Record<CourierProvider, number> = {
+    Steadfast: 14250,
+    Pathao: 28900,
+    RedX: 9500,
+    Paperfly: 18400,
+  };
+
+  const balanceBdt = mockBalances[provider] || 10000;
+
+  return {
+    success: true,
+    latencyMs,
+    balanceBdt,
+    statusMsg: `${provider} Gateway Online • Merchant Store #${storeId || "101"} Operational`,
+  };
+}

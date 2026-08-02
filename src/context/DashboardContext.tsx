@@ -10,6 +10,7 @@ import {
   fetchSupabaseClients,
   fetchSupabaseMetaCampaigns,
   fetchSupabaseTenantSettings,
+  fetchSupabaseCourierIntegrations,
   insertSupabaseInventoryItem,
   updateSupabaseInventoryQty,
   deleteSupabaseInventoryItem,
@@ -26,10 +27,12 @@ import {
   updateSupabaseMetaCampaign,
   deleteSupabaseMetaCampaign,
   updateSupabaseMetaCredentials,
+  saveSupabaseCourierIntegration,
   seedSupabaseData,
   isSupabaseConfigured,
   MetaCampaign,
   MetaSettings,
+  CourierIntegration,
 } from "@/lib/supabaseService";
 import { supabase } from "@/lib/supabase";
 
@@ -168,12 +171,49 @@ interface DashboardContextType {
   addMetaCampaign: (campaign: Omit<MetaCampaign, "id">) => Promise<boolean>;
   toggleMetaCampaignStatus: (id: string) => Promise<boolean>;
   deleteMetaCampaign: (id: string) => Promise<boolean>;
+  courierIntegrations: CourierIntegration[];
+  saveCourierIntegration: (config: CourierIntegration) => Promise<boolean>;
   toasts: ToastMessage[];
   addToast: (type: ToastType, title: string, message?: string) => void;
   dismissToast: (id: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
+
+const initialMockCourierIntegrations: CourierIntegration[] = [
+  {
+    provider: "Steadfast",
+    apiKey: "stdf_live_894102849182",
+    secretKey: "stdf_secret_99812",
+    storeId: "101",
+    defaultDeliveryType: "inside_dhaka",
+    isActive: true,
+  },
+  {
+    provider: "Pathao",
+    apiKey: "pth_live_77192049102",
+    secretKey: "pth_secret_4410",
+    storeId: "10892",
+    defaultDeliveryType: "inside_dhaka",
+    isActive: true,
+  },
+  {
+    provider: "RedX",
+    apiKey: "rdx_live_55192019481",
+    secretKey: "rdx_secret_1120",
+    storeId: "REDX-DHAKA-1",
+    defaultDeliveryType: "inside_dhaka",
+    isActive: true,
+  },
+  {
+    provider: "Paperfly",
+    apiKey: "pfly_live_33192019400",
+    secretKey: "pfly_secret_8831",
+    storeId: "PFLY-STORE-01",
+    defaultDeliveryType: "outside_dhaka",
+    isActive: true,
+  },
+];
 
 // Initial fallback mock data
 const initialMockInventory: InventoryItem[] = [
@@ -462,6 +502,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [retailers, setRetailers] = useState<Retailer[]>(initialMockRetailers);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
   const [metaCampaigns, setMetaCampaigns] = useState<MetaCampaign[]>(initialMockMetaCampaigns);
+  const [courierIntegrations, setCourierIntegrations] = useState<CourierIntegration[]>(initialMockCourierIntegrations);
   const [metaSettings, setMetaSettings] = useState<MetaSettings>({
     metaAdAccountId: "act_49201948120",
     metaAccessToken: "EAAG_demo_access_token_nuport_enterprise",
@@ -525,6 +566,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         fetchSupabaseClients(),
         fetchSupabaseMetaCampaigns(activeTenantId || undefined),
         fetchSupabaseTenantSettings(activeTenantId || undefined),
+        fetchSupabaseCourierIntegrations(activeTenantId || undefined),
       ]);
 
       let results;
@@ -535,7 +577,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         results = await fetchPromise;
       }
 
-      const [remoteInv, remoteOrd, remoteRet, remoteCli, remoteMeta, remoteMetaSettings] = results;
+      const [remoteInv, remoteOrd, remoteRet, remoteCli, remoteMeta, remoteMetaSettings, remoteCouriers] = results;
 
       // Clean Workspace Enforcement: If an active tenant is set, populate strictly isolated records (or [] if 0 records exist)
       if (activeTenantId) {
@@ -546,7 +588,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (remoteMetaSettings) {
           setMetaSettings(remoteMetaSettings);
         }
-        if (remoteInv !== null || remoteOrd !== null || remoteRet !== null || remoteMeta !== null) {
+        if (remoteCouriers && remoteCouriers.length > 0) {
+          setCourierIntegrations(remoteCouriers);
+        }
+        if (remoteInv !== null || remoteOrd !== null || remoteRet !== null || remoteMeta !== null || remoteCouriers !== null) {
           setIsSupabaseLive(true);
         }
       } else {
@@ -568,6 +613,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
         if (remoteMetaSettings) {
           setMetaSettings(remoteMetaSettings);
+        }
+        if (remoteCouriers && remoteCouriers.length > 0) {
+          setCourierIntegrations(remoteCouriers);
         }
       }
 
@@ -944,6 +992,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [activeTenantId, addToast]);
 
+  const saveCourierIntegration = useCallback(async (config: CourierIntegration) => {
+    setCourierIntegrations(prev => {
+      const idx = prev.findIndex(c => c.provider === config.provider);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = config;
+        return copy;
+      }
+      return [...prev, config];
+    });
+
+    if (isSupabaseConfigured() && activeTenantId) {
+      const ok = await saveSupabaseCourierIntegration(config, activeTenantId);
+      if (ok) {
+        addToast("success", `${config.provider} Config Saved`, `Updated ${config.provider} integration for Tenant ${activeTenantId} in Supabase`);
+        return true;
+      }
+    }
+    addToast("success", `${config.provider} Config Saved`, `Updated ${config.provider} settings`);
+    return true;
+  }, [activeTenantId, addToast]);
+
   const contextValue = useMemo(() => {
     return {
       userRole,
@@ -999,6 +1069,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       addMetaCampaign,
       toggleMetaCampaignStatus,
       deleteMetaCampaign,
+      courierIntegrations,
+      saveCourierIntegration,
       toasts,
       addToast,
       dismissToast,
@@ -1052,6 +1124,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     addMetaCampaign,
     toggleMetaCampaignStatus,
     deleteMetaCampaign,
+    courierIntegrations,
+    saveCourierIntegration,
     toasts,
     addToast,
     dismissToast,

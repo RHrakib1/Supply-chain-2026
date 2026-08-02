@@ -741,6 +741,86 @@ export async function updateSupabaseMetaCredentials(
   }
 }
 
+// --- COURIER API INTEGRATIONS (MULTI-TENANT ISOLATION) ---
+
+export interface CourierIntegration {
+  provider: "Steadfast" | "Pathao" | "RedX" | "Paperfly";
+  apiKey: string;
+  secretKey: string;
+  storeId: string;
+  defaultDeliveryType: "inside_dhaka" | "outside_dhaka";
+  isActive: boolean;
+  updatedAt?: string;
+}
+
+interface SupabaseCourierRow {
+  tenant_id?: string;
+  provider: string;
+  api_key?: string;
+  secret_key?: string;
+  store_id?: string;
+  default_delivery_type?: string;
+  is_active?: boolean;
+  updated_at?: string;
+}
+
+export async function fetchSupabaseCourierIntegrations(tenantId?: string): Promise<CourierIntegration[] | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    let query = supabase.from("courier_integrations").select("*");
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+    const { data, error } = await query;
+    if (error || !data) {
+      if (error) console.info("Supabase fetch courier_integrations notice:", error.message);
+      return null;
+    }
+
+    return (data as SupabaseCourierRow[]).map(row => ({
+      provider: (row.provider || "Steadfast") as CourierIntegration["provider"],
+      apiKey: row.api_key || "",
+      secretKey: row.secret_key || "",
+      storeId: row.store_id || "",
+      defaultDeliveryType: (row.default_delivery_type as CourierIntegration["defaultDeliveryType"]) || "inside_dhaka",
+      isActive: row.is_active ?? true,
+      updatedAt: row.updated_at,
+    }));
+  } catch (err) {
+    console.error("Failed to fetch courier integrations from Supabase:", err);
+    return null;
+  }
+}
+
+export async function saveSupabaseCourierIntegration(config: CourierIntegration, tenantId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured() || !tenantId) return false;
+  try {
+    const payload = {
+      tenant_id: tenantId,
+      provider: config.provider,
+      api_key: config.apiKey,
+      secret_key: config.secretKey,
+      store_id: config.storeId,
+      default_delivery_type: config.defaultDeliveryType,
+      is_active: config.isActive,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("courier_integrations").upsert(payload, { onConflict: "tenant_id,provider" });
+    if (error) {
+      const { error: err2 } = await supabase.from("courier_integrations").insert([payload]);
+      if (err2) {
+        console.error("Error saving courier integration:", err2.message);
+        return false;
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to save courier integration in Supabase:", err);
+    return false;
+  }
+}
+
 
 /*
   ===================================================================
