@@ -34,6 +34,7 @@ import {
   MetaSettings,
   CourierIntegration,
 } from "@/lib/supabaseService";
+import { FraudCheckInfo } from "@/lib/courierService";
 import { supabase } from "@/lib/supabase";
 
 export type UserRole = "admin" | "user" | "super_admin" | "retailer" | "driver" | "dealer" | "warehouse";
@@ -62,6 +63,8 @@ export interface Order {
   carrier: string;
   trackingNum: string;
   eta: string;
+  customerPhone?: string;
+  fraudCheck?: FraudCheckInfo;
 }
 
 export interface Retailer {
@@ -228,11 +231,131 @@ const initialMockInventory: InventoryItem[] = [
 ];
 
 const initialMockOrders: Order[] = [
-  { id: "ORD-9842", retailer: "Walmart East Hub", location: "Boston, MA", date: "2026-07-24", items: "Steel Coupler Pins (x500), Brake Seals (x200)", qty: 700, total: 6710.00, status: "In Transit", carrier: "FedEx Freight", trackingNum: "FX-9081249-A", eta: "Today, 14:30" },
-  { id: "ORD-9843", retailer: "Target Dist Center", location: "Atlanta, GA", date: "2026-07-23", items: "Hydraulic Tubing (x100), Steel Coupler Pins (x50)", qty: 150, total: 2625.00, status: "In Transit", carrier: "DHL Supply Chain", trackingNum: "DH-119283-GA", eta: "Tomorrow, 16:45" },
-  { id: "ORD-9844", retailer: "Costco Wholesale #12", location: "Chicago, IL", date: "2026-07-22", items: "Heavy Duty Strut Mounts (x80)", qty: 80, total: 5200.00, status: "Delivered", carrier: "Swift Cargo", trackingNum: "SW-88290-IL", eta: "Delivered (July 24)" },
-  { id: "ORD-9845", retailer: "Kroger Supply Hub", location: "Houston, TX", date: "2026-07-22", items: "Synthetic Gear Oil 5L (x150)", qty: 150, total: 4498.50, status: "Processing", carrier: "LogiLink Local", trackingNum: "LL-TX-092-B", eta: "July 27, 09:00" },
-  { id: "ORD-9846", retailer: "Amazon FC MD-3", location: "Baltimore, MD", date: "2026-07-25", items: "Microchips H1-V2 (x200), LED Signal Bulbs (x500)", qty: 700, total: 11100.00, status: "Pending", carrier: "FedEx Freight", trackingNum: "Pending Dispatch", eta: "TBD" },
+  { 
+    id: "ORD-9842", 
+    retailer: "Walmart East Hub", 
+    location: "Boston, MA", 
+    date: "2026-07-24", 
+    items: "Steel Coupler Pins (x500), Brake Seals (x200)", 
+    qty: 700, 
+    total: 6710.00, 
+    status: "In Transit", 
+    carrier: "FedEx Freight", 
+    trackingNum: "FX-9081249-A", 
+    eta: "Today, 14:30",
+    customerPhone: "01711009842",
+    fraudCheck: {
+      phone: "01711009842",
+      totalOrders: 18,
+      deliveredOrders: 17,
+      returnedOrders: 1,
+      successRatePercent: 94.4,
+      riskLevel: "low",
+      riskScore: 94,
+      message: "LOW RISK / SAFE: High delivery success history. Trusted customer",
+      providerQueried: "Steadfast & Pathao Mesh"
+    }
+  },
+  { 
+    id: "ORD-9843", 
+    retailer: "Target Dist Center", 
+    location: "Atlanta, GA", 
+    date: "2026-07-23", 
+    items: "Hydraulic Tubing (x100), Steel Coupler Pins (x50)", 
+    qty: 150, 
+    total: 2625.00, 
+    status: "In Transit", 
+    carrier: "DHL Supply Chain", 
+    trackingNum: "DH-119283-GA", 
+    eta: "Tomorrow, 16:45",
+    customerPhone: "01819009843",
+    fraudCheck: {
+      phone: "01819009843",
+      totalOrders: 10,
+      deliveredOrders: 7,
+      returnedOrders: 3,
+      successRatePercent: 70.0,
+      riskLevel: "medium",
+      riskScore: 70,
+      message: "MODERATE RISK: Moderate return history. Phone verification recommended",
+      providerQueried: "Pathao API Gateway"
+    }
+  },
+  { 
+    id: "ORD-9844", 
+    retailer: "Costco Wholesale #12", 
+    location: "Chicago, IL", 
+    date: "2026-07-22", 
+    items: "Heavy Duty Strut Mounts (x80)", 
+    qty: 80, 
+    total: 5200.00, 
+    status: "Delivered", 
+    carrier: "Swift Cargo", 
+    trackingNum: "SW-88290-IL", 
+    eta: "Delivered (July 24)",
+    customerPhone: "01912009844",
+    fraudCheck: {
+      phone: "01912009844",
+      totalOrders: 14,
+      deliveredOrders: 13,
+      returnedOrders: 1,
+      successRatePercent: 92.9,
+      riskLevel: "low",
+      riskScore: 93,
+      message: "LOW RISK / SAFE: Verified delivery record",
+      providerQueried: "Steadfast API"
+    }
+  },
+  { 
+    id: "ORD-9845", 
+    retailer: "Kroger Supply Hub", 
+    location: "Houston, TX", 
+    date: "2026-07-22", 
+    items: "Synthetic Gear Oil 5L (x150)", 
+    qty: 150, 
+    total: 4498.50, 
+    status: "Processing", 
+    carrier: "LogiLink Local", 
+    trackingNum: "LL-TX-092-B", 
+    eta: "July 27, 09:00",
+    customerPhone: "01611009845",
+    fraudCheck: {
+      phone: "01611009845",
+      totalOrders: 12,
+      deliveredOrders: 4,
+      returnedOrders: 8,
+      successRatePercent: 33.3,
+      riskLevel: "high",
+      riskScore: 33,
+      message: "HIGH RISK / FAKE ORDER WARNING: High return frequency recorded across couriers",
+      providerQueried: "Steadfast & Pathao Mesh"
+    }
+  },
+  { 
+    id: "ORD-9846", 
+    retailer: "Amazon FC MD-3", 
+    location: "Baltimore, MD", 
+    date: "2026-07-25", 
+    items: "Microchips H1-V2 (x200), LED Signal Bulbs (x500)", 
+    qty: 700, 
+    total: 11100.00, 
+    status: "Pending", 
+    carrier: "FedEx Freight", 
+    trackingNum: "Pending Dispatch", 
+    eta: "TBD",
+    customerPhone: "01715009846",
+    fraudCheck: {
+      phone: "01715009846",
+      totalOrders: 20,
+      deliveredOrders: 19,
+      returnedOrders: 1,
+      successRatePercent: 95.0,
+      riskLevel: "low",
+      riskScore: 95,
+      message: "LOW RISK / SAFE: Outstanding delivery success record",
+      providerQueried: "Courier Fraud Mesh"
+    }
+  },
 ];
 
 const initialMockRetailers: Retailer[] = [
