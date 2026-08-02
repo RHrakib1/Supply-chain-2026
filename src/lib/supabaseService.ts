@@ -519,6 +519,229 @@ export async function seedSupabaseData(
   return { success: true };
 }
 
+// --- META ADS & TENANT SETTINGS (MULTI-TENANT ISOLATION) ---
+
+export interface MetaCampaign {
+  id: string;
+  campaignName: string;
+  impressions: number;
+  clicks: number;
+  spendUsd: number;
+  ordersDriven: number;
+  revenueBdt: number;
+  roas: number;
+  status: "ACTIVE" | "PAUSED";
+  tenantId?: string;
+  createdAt?: string;
+}
+
+export interface MetaSettings {
+  metaAdAccountId: string;
+  metaAccessToken: string;
+  usdToBdtRate: number;
+  updatedAt?: string;
+}
+
+interface SupabaseMetaCampaignRow {
+  id?: string;
+  tenant_id?: string;
+  campaign_name?: string;
+  name?: string;
+  impressions?: number;
+  clicks?: number;
+  spend_usd?: number;
+  spend?: number;
+  orders_driven?: number;
+  orders?: number;
+  revenue_bdt?: number;
+  revenue?: number;
+  roas?: number;
+  status?: "ACTIVE" | "PAUSED";
+  created_at?: string;
+}
+
+interface SupabaseTenantSettingsRow {
+  tenant_id?: string;
+  meta_ad_account_id?: string;
+  meta_access_token?: string;
+  usd_to_bdt_rate?: number;
+  updated_at?: string;
+}
+
+export async function fetchSupabaseMetaCampaigns(tenantId?: string): Promise<MetaCampaign[] | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    let query = supabase
+      .from("meta_campaigns")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
+      if (error) console.warn("Supabase fetch meta_campaigns notice:", error.message);
+      return null;
+    }
+
+    return (data as SupabaseMetaCampaignRow[]).map(row => {
+      const spendUsd = row.spend_usd ?? row.spend ?? 0;
+      const revenueBdt = row.revenue_bdt ?? row.revenue ?? 0;
+      const roas = row.roas ?? (spendUsd > 0 ? Number(((revenueBdt / (spendUsd * 120))).toFixed(2)) : 0);
+      return {
+        id: row.id || `CAM-${Math.floor(Math.random() * 1000)}`,
+        campaignName: row.campaign_name || row.name || "Meta Conversion Campaign",
+        impressions: row.impressions || 0,
+        clicks: row.clicks || 0,
+        spendUsd,
+        ordersDriven: row.orders_driven ?? row.orders ?? 0,
+        revenueBdt,
+        roas,
+        status: row.status || "ACTIVE",
+        tenantId: row.tenant_id,
+        createdAt: row.created_at ? new Date(row.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      };
+    });
+  } catch (err) {
+    console.error("Failed to fetch meta campaigns from Supabase:", err);
+    return null;
+  }
+}
+
+export async function insertSupabaseMetaCampaign(campaign: Omit<MetaCampaign, "id"> & { id?: string }, tenantId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const payload: Record<string, unknown> = {
+      campaign_name: campaign.campaignName,
+      impressions: campaign.impressions,
+      clicks: campaign.clicks,
+      spend_usd: campaign.spendUsd,
+      orders_driven: campaign.ordersDriven,
+      revenue_bdt: campaign.revenueBdt,
+      roas: campaign.roas,
+      status: campaign.status,
+    };
+    if (campaign.id) payload.id = campaign.id;
+    if (tenantId) payload.tenant_id = tenantId;
+
+    const { error } = await supabase.from("meta_campaigns").insert([payload]);
+    if (error) {
+      console.error("Error inserting meta campaign:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to insert meta campaign into Supabase:", err);
+    return false;
+  }
+}
+
+export async function updateSupabaseMetaCampaign(id: string, updates: Partial<MetaCampaign>, tenantId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const payload: Record<string, unknown> = {};
+    if (updates.campaignName !== undefined) payload.campaign_name = updates.campaignName;
+    if (updates.impressions !== undefined) payload.impressions = updates.impressions;
+    if (updates.clicks !== undefined) payload.clicks = updates.clicks;
+    if (updates.spendUsd !== undefined) payload.spend_usd = updates.spendUsd;
+    if (updates.ordersDriven !== undefined) payload.orders_driven = updates.ordersDriven;
+    if (updates.revenueBdt !== undefined) payload.revenue_bdt = updates.revenueBdt;
+    if (updates.roas !== undefined) payload.roas = updates.roas;
+    if (updates.status !== undefined) payload.status = updates.status;
+
+    let query = supabase.from("meta_campaigns").update(payload).eq("id", id);
+    if (tenantId) query = query.eq("tenant_id", tenantId);
+
+    const { error } = await query;
+    if (error) {
+      console.error("Error updating meta campaign:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to update meta campaign in Supabase:", err);
+    return false;
+  }
+}
+
+export async function deleteSupabaseMetaCampaign(id: string, tenantId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    let query = supabase.from("meta_campaigns").delete().eq("id", id);
+    if (tenantId) query = query.eq("tenant_id", tenantId);
+    const { error } = await query;
+    if (error) {
+      console.error("Error deleting meta campaign:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to delete meta campaign in Supabase:", err);
+    return false;
+  }
+}
+
+// --- TENANT SETTINGS (META ACCESS TOKEN & ACCOUNT ID) ---
+
+export async function fetchSupabaseTenantSettings(tenantId?: string): Promise<MetaSettings | null> {
+  if (!isSupabaseConfigured() || !tenantId) return null;
+  try {
+    const { data, error } = await supabase
+      .from("tenant_settings")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (error || !data) {
+      if (error) console.info("Supabase fetch tenant_settings notice:", error.message);
+      return null;
+    }
+
+    const row = data as SupabaseTenantSettingsRow;
+    return {
+      metaAdAccountId: row.meta_ad_account_id || "",
+      metaAccessToken: row.meta_access_token || "",
+      usdToBdtRate: row.usd_to_bdt_rate || 120.0,
+      updatedAt: row.updated_at,
+    };
+  } catch (err) {
+    console.error("Failed to fetch tenant settings from Supabase:", err);
+    return null;
+  }
+}
+
+export async function updateSupabaseMetaCredentials(
+  metaAdAccountId: string,
+  metaAccessToken: string,
+  usdToBdtRate: number = 120.0,
+  tenantId?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured() || !tenantId) return false;
+  try {
+    const payload = {
+      tenant_id: tenantId,
+      meta_ad_account_id: metaAdAccountId,
+      meta_access_token: metaAccessToken,
+      usd_to_bdt_rate: usdToBdtRate,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("tenant_settings").upsert(payload, { onConflict: "tenant_id" });
+    if (error) {
+      console.error("Error updating meta credentials in tenant_settings:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to update meta credentials in Supabase:", err);
+    return false;
+  }
+}
+
+
 /*
   ===================================================================
   SUPABASE ROW LEVEL SECURITY (RLS) & CLERK ROLE INTEGRATION REFERENCE

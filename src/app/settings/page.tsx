@@ -23,18 +23,63 @@ function SettingsPageContent() {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "roles";
 
-  const { userRole, isAdmin, setUserRole, isSupabaseLive, activeTenantId, addToast } = useDashboard();
+  const { 
+    userRole, 
+    isAdmin, 
+    setUserRole, 
+    isSupabaseLive, 
+    activeTenantId, 
+    addToast,
+    metaSettings,
+    saveMetaCredentials
+  } = useDashboard();
 
   const [staffEmail, setStaffEmail] = useState("");
   const [staffName, setStaffName] = useState("");
   const [isSubmittingStaff, setIsSubmittingStaff] = useState(false);
   const [staffNotice, setStaffNotice] = useState<string | null>(null);
 
+  // Meta Settings State
+  const [metaAdAccountId, setMetaAdAccountId] = useState(metaSettings?.metaAdAccountId || "act_49201948120");
+  const [metaAccessToken, setMetaAccessToken] = useState(metaSettings?.metaAccessToken || "EAAG_demo_access_token");
+  const [usdToBdtRate, setUsdToBdtRate] = useState(metaSettings?.usdToBdtRate?.toString() || "120");
+  const [isSavingMeta, setIsSavingMeta] = useState(false);
+
+  useEffect(() => {
+    if (metaSettings) {
+      if (metaSettings.metaAdAccountId) setMetaAdAccountId(metaSettings.metaAdAccountId);
+      if (metaSettings.metaAccessToken) setMetaAccessToken(metaSettings.metaAccessToken);
+      if (metaSettings.usdToBdtRate) setUsdToBdtRate(metaSettings.usdToBdtRate.toString());
+    }
+  }, [metaSettings]);
+
   useEffect(() => {
     if (!isAdmin) {
       router.replace("/route-tracking");
     }
   }, [isAdmin, router]);
+
+  const handleSaveMetaCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!metaAdAccountId.trim()) {
+      addToast("warning", "Ad Account ID Required", "Please enter your Meta Ad Account ID (e.g. act_12345)");
+      return;
+    }
+    if (!metaAccessToken.trim()) {
+      addToast("warning", "Access Token Required", "Please enter a valid Meta Access Token");
+      return;
+    }
+
+    setIsSavingMeta(true);
+    try {
+      const rate = parseFloat(usdToBdtRate) || 120.0;
+      await saveMetaCredentials(metaAdAccountId.trim(), metaAccessToken.trim(), rate);
+    } catch (err) {
+      console.error("Error saving meta credentials:", err);
+    } finally {
+      setIsSavingMeta(false);
+    }
+  };
 
   const handleProvisionStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +158,18 @@ function SettingsPageContent() {
         >
           <Truck className="h-4 w-4" />
           <span>Courier APIs & System Integrations</span>
+        </button>
+
+        <button
+          onClick={() => router.push("/settings?tab=meta")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "meta" || activeTab === "facebook"
+              ? "bg-indigo-600 text-white shadow-md font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Key className="h-4 w-4 text-emerald-400" />
+          <span>Meta Ad Account & System Token</span>
         </button>
       </div>
 
@@ -339,6 +396,98 @@ function SettingsPageContent() {
               <p className="text-[11px] text-slate-400">Client ID: `pth_prod_7712` | Secret: `••••••••`</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* SECTION 3: META ADS CREDENTIALS & ACCESS TOKEN */}
+      {(activeTab === "meta" || activeTab === "facebook") && (
+        <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20 space-y-6 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/30">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Key className="h-5 w-5 text-indigo-400" />
+                Meta Ad Account & System User Access Token
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Configure your Facebook Graph API credentials for multi-tenant ROAS analytics and conversion tracking.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-300 font-bold w-fit">
+              <Building2 className="h-3.5 w-3.5" />
+              <span>Target Tenant: {activeTenantId || "CLI-101"}</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveMetaCredentials} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Meta Ad Account ID *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. act_49201948120"
+                  value={metaAdAccountId}
+                  onChange={(e) => setMetaAdAccountId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Prefix with `act_` as shown in Meta Business Manager.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  USD to BDT Exchange Rate *
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  placeholder="120.0"
+                  value={usdToBdtRate}
+                  onChange={(e) => setUsdToBdtRate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Used for converting Facebook USD spend to BDT sales ratio.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                System User Long-Lived Access Token *
+              </label>
+              <textarea
+                rows={3}
+                required
+                placeholder="Paste System User Access Token starting with EAAG..."
+                value={metaAccessToken}
+                onChange={(e) => setMetaAccessToken(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-900 border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Encrypted and saved to Supabase tenant settings (`.eq(&quot;tenant_id&quot;, &quot;{activeTenantId || "CLI-101"}&quot;)`)
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/5">
+              <button
+                type="submit"
+                disabled={isSavingMeta}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50"
+              >
+                {isSavingMeta ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                <span>{isSavingMeta ? "Saving Token..." : "Save Meta Credentials"}</span>
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

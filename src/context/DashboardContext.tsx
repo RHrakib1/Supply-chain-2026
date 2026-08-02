@@ -8,6 +8,8 @@ import {
   fetchSupabaseOrders,
   fetchSupabaseRetailers,
   fetchSupabaseClients,
+  fetchSupabaseMetaCampaigns,
+  fetchSupabaseTenantSettings,
   insertSupabaseInventoryItem,
   updateSupabaseInventoryQty,
   deleteSupabaseInventoryItem,
@@ -20,8 +22,14 @@ import {
   insertSupabaseClient,
   updateSupabaseClientStatus,
   deleteSupabaseClient,
+  insertSupabaseMetaCampaign,
+  updateSupabaseMetaCampaign,
+  deleteSupabaseMetaCampaign,
+  updateSupabaseMetaCredentials,
   seedSupabaseData,
   isSupabaseConfigured,
+  MetaCampaign,
+  MetaSettings,
 } from "@/lib/supabaseService";
 import { supabase } from "@/lib/supabase";
 
@@ -154,6 +162,12 @@ interface DashboardContextType {
   addClientBusiness: (client: Omit<ClientBusiness, "id" | "activeUsers" | "createdAt" | "mrr">) => void;
   toggleClientStatus: (id: string) => void;
   deleteClientBusiness: (id: string) => void;
+  metaCampaigns: MetaCampaign[];
+  metaSettings: MetaSettings;
+  saveMetaCredentials: (adAccountId: string, accessToken: string, usdToBdtRate?: number) => Promise<boolean>;
+  addMetaCampaign: (campaign: Omit<MetaCampaign, "id">) => Promise<boolean>;
+  toggleMetaCampaignStatus: (id: string) => Promise<boolean>;
+  deleteMetaCampaign: (id: string) => Promise<boolean>;
   toasts: ToastMessage[];
   addToast: (type: ToastType, title: string, message?: string) => void;
   dismissToast: (id: string) => void;
@@ -244,6 +258,57 @@ const initialMockClients: ClientBusiness[] = [
     status: "Suspended",
     mrr: 250000,
     createdAt: "2025-11-04",
+  },
+];
+
+const initialMockMetaCampaigns: MetaCampaign[] = [
+  {
+    id: "CAM-101",
+    campaignName: "Summer Flash Sale 2026 - Conversion",
+    impressions: 485000,
+    clicks: 19400,
+    spendUsd: 4500.0,
+    ordersDriven: 360,
+    revenueBdt: 2808000,
+    roas: 5.2,
+    status: "ACTIVE",
+    createdAt: "2026-07-28",
+  },
+  {
+    id: "CAM-102",
+    campaignName: "VIP B2B Wholesale Retargeting",
+    impressions: 210000,
+    clicks: 11550,
+    spendUsd: 2800.0,
+    ordersDriven: 215,
+    revenueBdt: 1814400,
+    roas: 5.4,
+    status: "ACTIVE",
+    createdAt: "2026-07-25",
+  },
+  {
+    id: "CAM-103",
+    campaignName: "Brand Awareness - Dhaka & Chittagong Metro",
+    impressions: 650000,
+    clicks: 13000,
+    spendUsd: 1800.0,
+    ordersDriven: 95,
+    revenueBdt: 864000,
+    roas: 4.0,
+    status: "ACTIVE",
+    createdAt: "2026-07-20",
+  },
+  {
+    id: "CAM-104",
+    campaignName: "New Product Line Lookalike Audience",
+    impressions: 180000,
+    clicks: 6480,
+    spendUsd: 1200.0,
+    ordersDriven: 72,
+    revenueBdt: 705600,
+    roas: 4.9,
+    status: "PAUSED",
+    createdAt: "2026-07-15",
   },
 ];
 
@@ -396,6 +461,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(initialMockOrders);
   const [retailers, setRetailers] = useState<Retailer[]>(initialMockRetailers);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
+  const [metaCampaigns, setMetaCampaigns] = useState<MetaCampaign[]>(initialMockMetaCampaigns);
+  const [metaSettings, setMetaSettings] = useState<MetaSettings>({
+    metaAdAccountId: "act_49201948120",
+    metaAccessToken: "EAAG_demo_access_token_nuport_enterprise",
+    usdToBdtRate: 120.0,
+  });
   const [clients, setClients] = useState<ClientBusiness[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("logilink_clients");
@@ -452,6 +523,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         fetchSupabaseOrders(activeTenantId || undefined),
         fetchSupabaseRetailers(activeTenantId || undefined),
         fetchSupabaseClients(),
+        fetchSupabaseMetaCampaigns(activeTenantId || undefined),
+        fetchSupabaseTenantSettings(activeTenantId || undefined),
       ]);
 
       let results;
@@ -462,14 +535,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         results = await fetchPromise;
       }
 
-      const [remoteInv, remoteOrd, remoteRet, remoteCli] = results;
+      const [remoteInv, remoteOrd, remoteRet, remoteCli, remoteMeta, remoteMetaSettings] = results;
 
       // Clean Workspace Enforcement: If an active tenant is set, populate strictly isolated records (or [] if 0 records exist)
       if (activeTenantId) {
         setInventory(remoteInv || []);
         setOrders(remoteOrd || []);
         setRetailers(remoteRet || []);
-        if (remoteInv !== null || remoteOrd !== null || remoteRet !== null) {
+        setMetaCampaigns(remoteMeta || []);
+        if (remoteMetaSettings) {
+          setMetaSettings(remoteMetaSettings);
+        }
+        if (remoteInv !== null || remoteOrd !== null || remoteRet !== null || remoteMeta !== null) {
           setIsSupabaseLive(true);
         }
       } else {
@@ -485,6 +562,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (remoteRet && remoteRet.length > 0) {
           setRetailers(remoteRet);
           setIsSupabaseLive(true);
+        }
+        if (remoteMeta && remoteMeta.length > 0) {
+          setMetaCampaigns(remoteMeta);
+        }
+        if (remoteMetaSettings) {
+          setMetaSettings(remoteMetaSettings);
         }
       }
 
@@ -799,6 +882,68 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     deleteSupabaseRetailer(id, activeTenantId || undefined);
   }, [addLog, addToast, activeTenantId]);
 
+  const saveMetaCredentials = useCallback(async (adAccountId: string, accessToken: string, usdToBdtRate = 120.0) => {
+    const updated: MetaSettings = {
+      metaAdAccountId: adAccountId,
+      metaAccessToken: accessToken,
+      usdToBdtRate,
+      updatedAt: new Date().toISOString(),
+    };
+    setMetaSettings(updated);
+
+    if (isSupabaseConfigured() && activeTenantId) {
+      const ok = await updateSupabaseMetaCredentials(adAccountId, accessToken, usdToBdtRate, activeTenantId);
+      if (ok) {
+        addToast("success", "Meta Credentials Saved", `Tenant ${activeTenantId} credentials updated in Supabase`);
+        return true;
+      }
+    }
+    addToast("success", "Meta Credentials Saved", `Ad Account ${adAccountId} saved`);
+    return true;
+  }, [activeTenantId, addToast]);
+
+  const addMetaCampaign = useCallback(async (campaign: Omit<MetaCampaign, "id">) => {
+    const roas = campaign.spendUsd > 0 ? Number((campaign.revenueBdt / (campaign.spendUsd * (metaSettings.usdToBdtRate || 120))).toFixed(2)) : 0;
+    const newCamp: MetaCampaign = {
+      ...campaign,
+      id: `CAM-${Date.now().toString().slice(-4)}`,
+      roas,
+      tenantId: activeTenantId || undefined,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+    setMetaCampaigns(prev => [newCamp, ...prev]);
+
+    if (isSupabaseConfigured()) {
+      await insertSupabaseMetaCampaign(newCamp, activeTenantId || undefined);
+    }
+    addToast("success", "Campaign Created", `Meta campaign "${campaign.campaignName}" launched`);
+    return true;
+  }, [activeTenantId, metaSettings.usdToBdtRate, addToast]);
+
+  const toggleMetaCampaignStatus = useCallback(async (id: string) => {
+    setMetaCampaigns(prev => prev.map(c => {
+      if (c.id === id) {
+        const nextStatus = c.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+        if (isSupabaseConfigured()) {
+          updateSupabaseMetaCampaign(id, { status: nextStatus }, activeTenantId || undefined);
+        }
+        return { ...c, status: nextStatus };
+      }
+      return c;
+    }));
+    addToast("info", "Campaign Status Updated", `Meta campaign status updated`);
+    return true;
+  }, [activeTenantId, addToast]);
+
+  const deleteMetaCampaign = useCallback(async (id: string) => {
+    setMetaCampaigns(prev => prev.filter(c => c.id !== id));
+    if (isSupabaseConfigured()) {
+      await deleteSupabaseMetaCampaign(id, activeTenantId || undefined);
+    }
+    addToast("info", "Campaign Removed", `Meta campaign deleted`);
+    return true;
+  }, [activeTenantId, addToast]);
+
   const contextValue = useMemo(() => {
     return {
       userRole,
@@ -848,6 +993,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       addClientBusiness,
       toggleClientStatus,
       deleteClientBusiness,
+      metaCampaigns,
+      metaSettings,
+      saveMetaCredentials,
+      addMetaCampaign,
+      toggleMetaCampaignStatus,
+      deleteMetaCampaign,
       toasts,
       addToast,
       dismissToast,
@@ -895,6 +1046,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     addClientBusiness,
     toggleClientStatus,
     deleteClientBusiness,
+    metaCampaigns,
+    metaSettings,
+    saveMetaCredentials,
+    addMetaCampaign,
+    toggleMetaCampaignStatus,
+    deleteMetaCampaign,
     toasts,
     addToast,
     dismissToast,

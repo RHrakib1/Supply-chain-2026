@@ -95,11 +95,12 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
     },
     {
       id: "analytics",
-      name: "Analytics & Trends",
+      name: "Marketing & Analytics",
       href: "/analytics",
       icon: BarChart3,
       subItems: [
         { name: "Revenue & Sales Trends", href: "/analytics?tab=revenue", tabKey: "revenue" },
+        { name: "Meta Ads & ROAS Engine", href: "/meta-ads", badge: "ROAS" },
         { name: "Basket Size Analysis", href: "/analytics?tab=basket", tabKey: "basket" },
         { name: "Courier Performance", href: "/analytics?tab=couriers", tabKey: "couriers" },
         { name: "Inventory Turnover", href: "/analytics?tab=inventory_turnover", tabKey: "inventory_turnover" }
@@ -253,7 +254,7 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
 
               {visibleGroups.map((group) => {
                 const Icon = group.icon;
-                const isGroupActive = pathname === group.href || (group.href !== "/" && pathname.startsWith(group.href));
+                const isGroupActive = pathname === group.href || (group.href !== "/" && pathname.startsWith(group.href)) || (group.id === "analytics" && pathname === "/meta-ads");
                 const isGroupOpen = !!openGroups[group.id];
 
                 return (
@@ -285,7 +286,9 @@ function SidebarContent({ isOpen, onClose }: SidebarProps) {
                       <div className="ml-3 pl-3 border-l border-slate-200 dark:border-white/10 my-1 space-y-0.5">
                         {group.subItems.map((subItem) => {
                           let isSubActive = false;
-                          if (subItem.tabKey) {
+                          if (subItem.href === "/meta-ads") {
+                            isSubActive = pathname === "/meta-ads";
+                          } else if (subItem.tabKey) {
                             isSubActive = pathname === group.href && activeTab === subItem.tabKey;
                           } else {
                             isSubActive = pathname === group.href && (!activeTab || activeTab === "");
